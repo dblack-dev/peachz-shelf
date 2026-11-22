@@ -19,6 +19,7 @@ rules_version = '2';
 // 2. Collection: users/{userId}/readerNovels/{novelId}
 //    Fields:
 //      - title: string (required, 1..200 chars)
+//      - translatedTitle: string (optional, <= 200 chars)
 //      - status: string (required, enum: 'reading' | 'completed' | 'plan')
 //      - isFavorite: bool (required)
 //      - chapterCount: number (required, 0..1,000,000)
@@ -27,8 +28,11 @@ rules_version = '2';
 //      - author: string (optional, <= 120 chars)
 //      - coverUrl: string (optional, <= 200,000 chars)
 //      - synopsis: string (optional, <= 5,000 chars)
+//      - translatedSynopsis: string (optional, <= 10,000 chars)
 //      - tags: list<string> (optional, <= 20 items, each string <= 120 chars)
 //      - notes: string (optional, <= 25,000 chars)
+//      - glossary: string (optional, <= 50,000 chars)
+//      - transStyle: string (optional, <= 1,000 chars)
 //      - lastChapterId: string (optional, <= 128 chars)
 //      - lastChapterTitle: string (optional, <= 200 chars)
 //      - lastChapterOrder: number (optional, 0..1,000,000)
@@ -38,20 +42,31 @@ rules_version = '2';
 //    Fields:
 //      - order: number (required, 0..1,000,000)
 //      - title: string (required, 1..200 chars)
+//      - translatedTitle: string (optional, <= 200 chars)
 //      - content: string (required, <= 800,000 chars)
+//      - translatedContent: string (optional, <= 800,000 chars)
 //      - wordCount: number (required, 0..2,000,000)
 //      - note: string (optional, <= 20,000 chars)
 //      - createdAt: number (required, immutable after creation, 0..9,999,999,999,999)
 //      - updatedAt: number (required, 0..9,999,999,999,999)
 //
 // 4. Collection: users/{userId}/readerMeta/{docId}
-//    Fields (all required):
-//      - theme: string (enum: 'light' | 'sepia' | 'dark')
-//      - fontFamily: string (enum: 'sarabun' | 'noto' | 'prompt')
-//      - fontSize: number (12..36)
-//      - lineHeight: number (1.2..3.0)
-//      - maxWidth: number (480..1200)
-//      - updatedAt: number (0..9,999,999,999,999)
+//    Two mutually exclusive metadata schemas (strictly validated by required + allowed keys):
+//
+//    4a. Reader Preferences (e.g., docId = 'prefs'):
+//      - theme: string (required, enum: 'light' | 'sepia' | 'dark')
+//      - fontFamily: string (required, enum: 'sarabun' | 'noto' | 'prompt')
+//      - fontSize: number (required, 12..36)
+//      - lineHeight: number (required, 1.2..3.0)
+//      - maxWidth: number (required, 480..1200)
+//      - readLangMode: string (optional, enum: 'th' | 'orig' | 'dual')
+//      - updatedAt: number (required, 0..9,999,999,999,999)
+//
+//    4b. Translator Config (e.g., docId = 'translator'):
+//      - geminiApiKey: string (required, <= 500 chars)
+//      - geminiModel: string (required, <= 120 chars)
+//      - defaultStyle: string (required, <= 2,000 chars)
+//      - updatedAt: number (required, 0..9,999,999,999,999)
 //
 // ===============================================================
 
@@ -92,6 +107,11 @@ service cloud.firestore {
       return val is number && val >= 0 && val <= 9999999999999;
     }
 
+    // Validate optional bounded string field
+    function isValidOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
     // Validate individual tag element if present at index
     function isValidTagItem(tags, idx) {
       return tags.size() <= idx || (tags[idx] is string && tags[idx].size() <= 120);
@@ -129,53 +149,81 @@ service cloud.firestore {
     // Validator for Private Novel Reader novel metadata
     function isValidNovel(data) {
       return hasOnlyAllowedFields(data, [
-               'title', 'author', 'coverUrl', 'synopsis', 'tags',
-               'status', 'isFavorite', 'notes', 'chapterCount',
-               'lastChapterId', 'lastChapterTitle', 'lastChapterOrder',
-               'lastScrollRatio', 'createdAt', 'updatedAt'
+               'title', 'translatedTitle', 'author', 'coverUrl', 'synopsis',
+               'translatedSynopsis', 'tags', 'status', 'isFavorite', 'notes',
+               'glossary', 'transStyle', 'chapterCount', 'lastChapterId',
+               'lastChapterTitle', 'lastChapterOrder', 'lastScrollRatio',
+               'createdAt', 'updatedAt'
              ]) &&
              hasRequiredFields(data, [
                'title', 'status', 'isFavorite', 'chapterCount', 'createdAt', 'updatedAt'
              ]) &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
-             data.status in ['reading', 'completed', 'plan'] &&
+             isValidOptionalString(data, 'translatedTitle', 200) &&
+             data.status is string && data.status in ['reading', 'completed', 'plan'] &&
              data.isFavorite is bool &&
              data.chapterCount is number && data.chapterCount >= 0 && data.chapterCount <= 1000000 &&
              isValidEpochMs(data.createdAt) &&
              isValidEpochMs(data.updatedAt) &&
-             (!('author' in data) || (data.author is string && data.author.size() <= 120)) &&
-             (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 200000)) &&
-             (!('synopsis' in data) || (data.synopsis is string && data.synopsis.size() <= 5000)) &&
+             isValidOptionalString(data, 'author', 120) &&
+             isValidOptionalString(data, 'coverUrl', 200000) &&
+             isValidOptionalString(data, 'synopsis', 5000) &&
+             isValidOptionalString(data, 'translatedSynopsis', 10000) &&
              (!('tags' in data) || isValidTagList(data.tags)) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 25000)) &&
-             (!('lastChapterId' in data) || (data.lastChapterId is string && data.lastChapterId.size() <= 128)) &&
-             (!('lastChapterTitle' in data) || (data.lastChapterTitle is string && data.lastChapterTitle.size() <= 200)) &&
+             isValidOptionalString(data, 'notes', 25000) &&
+             isValidOptionalString(data, 'glossary', 50000) &&
+             isValidOptionalString(data, 'transStyle', 1000) &&
+             isValidOptionalString(data, 'lastChapterId', 128) &&
+             isValidOptionalString(data, 'lastChapterTitle', 200) &&
              (!('lastChapterOrder' in data) || (data.lastChapterOrder is number && data.lastChapterOrder >= 0 && data.lastChapterOrder <= 1000000)) &&
              (!('lastScrollRatio' in data) || (data.lastScrollRatio is number && data.lastScrollRatio >= 0 && data.lastScrollRatio <= 1));
     }
 
     // Validator for Private Novel Reader chapter documents
     function isValidChapter(data) {
-      return hasOnlyAllowedFields(data, ['order', 'title', 'content', 'wordCount', 'note', 'createdAt', 'updatedAt']) &&
-             hasRequiredFields(data, ['order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt']) &&
+      return hasOnlyAllowedFields(data, [
+               'order', 'title', 'translatedTitle', 'content', 'translatedContent',
+               'wordCount', 'note', 'createdAt', 'updatedAt'
+             ]) &&
+             hasRequiredFields(data, [
+               'order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt'
+             ]) &&
              data.order is number && data.order >= 0 && data.order <= 1000000 &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             isValidOptionalString(data, 'translatedTitle', 200) &&
              data.content is string && data.content.size() <= 800000 &&
+             isValidOptionalString(data, 'translatedContent', 800000) &&
              data.wordCount is number && data.wordCount >= 0 && data.wordCount <= 2000000 &&
-             (!('note' in data) || (data.note is string && data.note.size() <= 20000)) &&
+             isValidOptionalString(data, 'note', 20000) &&
              isValidEpochMs(data.createdAt) &&
              isValidEpochMs(data.updatedAt);
     }
 
     // Validator for Private Novel Reader user preferences
     function isValidReaderPrefs(data) {
-      return hasOnlyAllowedFields(data, ['theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth', 'updatedAt']) &&
-             hasRequiredFields(data, ['theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth', 'updatedAt']) &&
-             data.theme in ['light', 'sepia', 'dark'] &&
-             data.fontFamily in ['sarabun', 'noto', 'prompt'] &&
+      return hasOnlyAllowedFields(data, [
+               'theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth',
+               'readLangMode', 'updatedAt'
+             ]) &&
+             hasRequiredFields(data, [
+               'theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth', 'updatedAt'
+             ]) &&
+             data.theme is string && data.theme in ['light', 'sepia', 'dark'] &&
+             data.fontFamily is string && data.fontFamily in ['sarabun', 'noto', 'prompt'] &&
              data.fontSize is number && data.fontSize >= 12 && data.fontSize <= 36 &&
              data.lineHeight is number && data.lineHeight >= 1.2 && data.lineHeight <= 3.0 &&
              data.maxWidth is number && data.maxWidth >= 480 && data.maxWidth <= 1200 &&
+             (!('readLangMode' in data) || (data.readLangMode is string && data.readLangMode in ['th', 'orig', 'dual'])) &&
+             isValidEpochMs(data.updatedAt);
+    }
+
+    // Validator for Private Novel Reader translator configuration
+    function isValidTranslatorConfig(data) {
+      return hasOnlyAllowedFields(data, ['geminiApiKey', 'geminiModel', 'defaultStyle', 'updatedAt']) &&
+             hasRequiredFields(data, ['geminiApiKey', 'geminiModel', 'defaultStyle', 'updatedAt']) &&
+             data.geminiApiKey is string && data.geminiApiKey.size() <= 500 &&
+             data.geminiModel is string && data.geminiModel.size() <= 120 &&
+             data.defaultStyle is string && data.defaultStyle.size() <= 2000 &&
              isValidEpochMs(data.updatedAt);
     }
 
@@ -207,10 +255,12 @@ service cloud.firestore {
                        request.resource.data.createdAt == resource.data.createdAt;
     }
 
-    // Private Novel Reader: Cloud reading preferences
+    // Private Novel Reader: Cloud reading preferences & translator configuration
     match /users/{userId}/readerMeta/{docId} {
       allow read, delete: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidReaderPrefs(request.resource.data);
+      allow create, update: if isOwner(userId) &&
+                               (isValidReaderPrefs(request.resource.data) ||
+                                isValidTranslatorConfig(request.resource.data));
     }
   }
 }
