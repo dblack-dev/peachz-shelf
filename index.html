@@ -1043,9 +1043,10 @@
             </button>
           </div>
           <div id="fetchedModelsWrap" class="hidden space-y-1">
-            <div class="text-[11px] font-semibold text-app-accent">โมเดลที่คีย์นี้ใช้งานได้ (เลือกเพื่อใส่ในช่องด้านบน):</div>
+            <div class="text-[11px] font-semibold text-app-accent">โมเดลที่คีย์นี้ใช้งานได้ — แบ่งตามความเหมาะสมด้านงานแปล &amp; ถาม-ตอบ:</div>
             <select id="selectFetchedModel" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-xs font-mono text-app-main focus:outline-none"></select>
           </div>
+          <div id="aiModelRecommendationCard" class="p-3 rounded-xl bg-app-surface border border-app text-xs space-y-1.5"></div>
           <div class="space-y-1.5">
             <div class="text-[11px] font-semibold text-app-sub">โมเดลที่จดจำไว้ (คลิกเพื่อเลือกใช้ทันที):</div>
             <div id="savedModelsChips" class="flex flex-wrap gap-1.5"></div>
@@ -1073,6 +1074,7 @@
             <div class="text-[11px] font-semibold text-app-accent">โมเดลเสียง TTS ที่คีย์นี้ใช้งานได้ (คลิกเลือกเพื่อใส่ด้านบน):</div>
             <select id="selectFetchedTtsModel" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-xs font-mono text-app-main focus:outline-none"></select>
           </div>
+          <div id="ttsModelRecommendationCard" class="p-2.5 rounded-xl bg-app-surface border border-app text-xs space-y-1"></div>
           <div class="space-y-1.5">
             <div class="text-[11px] font-semibold text-app-sub">โมเดลเสียงที่จดจำไว้ (คลิกเพื่อเลือกใช้ทันที):</div>
             <div id="savedTtsModelsChips" class="flex flex-wrap gap-1.5"></div>
@@ -4274,7 +4276,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         listKey: 'draftSavedModels',
         onPick: (m) => {
           updateAiStudioThinkingHint(m);
-          syncModelThinkingMetadata(m);
+          syncModelThinkingMetadata(m, false);
         }
       });
     }
@@ -4283,12 +4285,256 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       renderModelChipsList({
         boxId: 'savedTtsModelsChips',
         inputId: 'inputGeminiTtsModel',
-        listKey: 'draftSavedTtsModels'
+        listKey: 'draftSavedTtsModels',
+        onPick: (m) => {
+          syncModelThinkingMetadata(m, true);
+        }
       });
     }
 
     function updateThinkingBudgetVisibility() {
       $('customThinkingWrap').classList.toggle('hidden', $('selectThinkingLevel').value !== 'custom');
+    }
+
+    function formatCompactTokenLimit(n) {
+      const num = Number(n || 0);
+      if (!num) return '';
+      if (num >= 1000000) {
+        const m = num >= 1048576 && num % 1048576 === 0 ? num / 1048576 : Number((num / 1000000).toFixed(1));
+        return `${m}M`;
+      }
+      if (num >= 1024) {
+        return `${num % 1024 === 0 ? num / 1024 : Math.round(num / 1000)}K`;
+      }
+      return String(num);
+    }
+
+    function extractModelSortScore(modelId) {
+      const lower = String(modelId || '').toLowerCase();
+      const verMatch = lower.match(/(?:gemini|gemma)-(\d+(?:\.\d+)?)/);
+      const verScore = verMatch ? parseFloat(verMatch[1]) * 1000 : 100;
+      let tierBonus = 0;
+      if (/\bpro\b|-pro\b/.test(lower)) tierBonus += 40;
+      else if (/flash/.test(lower) && !/lite/.test(lower)) tierBonus += 30;
+      else if (/lite/.test(lower)) tierBonus += 20;
+      if (!/-\d{3}$|-exp/.test(lower)) tierBonus += 5;
+      if (/latest/.test(lower)) tierBonus += 2;
+      return verScore + tierBonus;
+    }
+
+    function cacheModelMetaFromApi(m) {
+      const id = String(m?.name || '').replace(/^models\//, '');
+      if (!id) return '';
+      liveModelMetaCache.set(id, {
+        thinking: m.thinking,
+        outputTokenLimit: m.outputTokenLimit,
+        inputTokenLimit: m.inputTokenLimit,
+        displayName: String(m.displayName || id),
+        description: String(m.description || '').trim(),
+        version: String(m.version || '').trim()
+      });
+      return id;
+    }
+
+    function formatSpecSummary(meta) {
+      if (!meta) return '';
+      const parts = [];
+      if (meta.inputTokenLimit) parts.push(`In ${formatCompactTokenLimit(meta.inputTokenLimit)}`);
+      if (meta.outputTokenLimit) parts.push(`Out ${formatCompactTokenLimit(meta.outputTokenLimit)}`);
+      if (meta.thinking === true) parts.push('Thinking');
+      return parts.join(' / ');
+    }
+
+    function analyzeAiModelProfile(modelId, meta = null) {
+      const cleanId = String(modelId || '').trim().replace(/^models\//, '') || 'gemini-2.5-flash';
+      const lower = cleanId.toLowerCase();
+      const desc = String(meta?.description || '').toLowerCase();
+      const specSummary = formatSpecSummary(meta);
+      const specBracket = specSummary ? ` [${specSummary}]` : '';
+
+      if (/tts|native-audio|live-audio|imagen|image-generation|\bveo\b|robotics|computer-use|embedding|aqa/i.test(lower) || /-image\b/i.test(lower)) {
+        const isAudio = /tts|audio/i.test(lower);
+        return {
+          category: 'special',
+          badge: isAudio ? '🎙️ โมเดลเสียง / TTS' : '🎨 โมเดลเฉพาะทาง ภาพ/วิดีโอ',
+          badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+          shortTag: isAudio ? '🎙️ โมเดลเสียง (ใช้ช่อง TTS ด้านล่าง)' : '🎨 เฉพาะทาง (ไม่ใช้แปลข้อความ)',
+          transAdvice: isAudio
+            ? 'โมเดลนี้ออกแบบมาเพื่อพากย์เสียงโดยเฉพาะ ควรนำไปใส่ในกล่อง "โมเดลเสียง AI (TTS)" ด้านล่าง (ไม่แนะนำใช้แปลข้อความ)'
+            : 'โมเดลเฉพาะทางด้านภาพ/วิดีโอ/งานพิเศษ ไม่เหมาะสำหรับการแปลนิยายเป็นภาษาไทย',
+          chatAdvice: 'ไม่เหมาะสำหรับการวิเคราะห์เนื้อเรื่องและถาม-ตอบ RAG',
+          recThinking: 'Auto',
+          specSummary,
+          specBracket
+        };
+      }
+
+      if (/flash-lite|lite\b|-8b\b|\bnano\b/i.test(lower)) {
+        return {
+          category: 'lite',
+          badge: '🚀 ความเร็วสูง & ประหยัดโควตา (Flash-Lite)',
+          badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+          shortTag: '🚀 เร็วสุด+ประหยัด เหมาะแปลรัว Batch',
+          transAdvice: 'ตอบสนองไวมาก ใช้โควตาน้อยที่สุด เหมาะสำหรับสั่งแปลต่อเนื่องทีละหลายสิบตอน (Batch) หรือแปลอ่านเอาเรื่องแบบเร็วทันใจ',
+          chatAdvice: 'สรุปตอนและตอบคำถามทั่วไปได้ไว เหมาะกับโหมดมาตรฐาน (~30K) หากถามวิเคราะห์อารมณ์ซับซ้อนแนะนำรุ่น Flash หรือ Pro',
+          recThinking: meta?.thinking === false ? 'Auto / Off' : 'Auto หรือ Low (เปิด Medium เฉพาะคำถามลึก)',
+          specSummary,
+          specBracket
+        };
+      }
+
+      if (/\bpro\b|-pro\b|ultra|reasoning/i.test(lower)) {
+        return {
+          category: 'pro',
+          badge: '👑 เกรดเรือธง (Pro — สำนวนสละสลวย & วิเคราะห์ลึกสุด)',
+          badgeClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300',
+          shortTag: '👑 สำนวนวรรณศิลป์+วิเคราะห์ปมลึกสุด',
+          transAdvice: 'โดดเด่นด้านสำนวนวรรณศิลป์ ตีความบริบทภาษาจีนซับซ้อน ฉากอารมณ์เข้มข้น และรักษาสไตล์นิยายไทยได้ละเอียดลึกซึ้งที่สุด',
+          chatAdvice: 'แม่นยำที่สุดสำหรับ "ถาม AI เกี่ยวกับเรื่องนี้" วิเคราะห์ความรู้สึก/แรงจูงใจตัวละคร และโหมดส่งบริบทละเอียดพิเศษ (~150K) / ไม่จำกัดเพดาน',
+          recThinking: 'Medium หรือ High',
+          specSummary,
+          specBracket
+        };
+      }
+
+      if (/flash/i.test(lower)) {
+        return {
+          category: 'flash',
+          badge: '⚡ สมดุลดีที่สุด (Flash — แนะนำหลัก)',
+          badgeClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300',
+          shortTag: '⚡ แนะนำหลัก: แปลลื่น+ถามตอบ RAG ไว',
+          transAdvice: 'สมดุลดีที่สุดสำหรับแปลนิยายทั้งเรื่อง ได้สำนวนไทยลื่นไหล อ่านสนุก รักษากลอสซารีแม่นยำ พร้อมความเร็วสูงและโควตาใช้งานได้เยอะ',
+          chatAdvice: 'ตอบคำถาม RAG, สรุปตอน และค้นฉากข้ามภาษาไทย-จีนได้รวดเร็วและแม่นยำ แนะนำใช้เป็นโมเดลหลักประจำแอปครับ',
+          recThinking: 'Auto, Low หรือ Medium',
+          specSummary,
+          specBracket
+        };
+      }
+
+      if (/gemma/i.test(lower)) {
+        return {
+          category: 'other',
+          badge: '🧩 โมเดล Open Weight (Gemma)',
+          badgeClass: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+          shortTag: '🧩 โมเดลทางเลือก Gemma',
+          transAdvice: 'เหมาะทดลองแปลประโยคสั้นๆ หากแปลนิยายทั้งตอนและคำสั่งสำนวนยาวๆ ตระกูล Gemini Flash / Pro จะให้สำนวนไทยลื่นกว่า',
+          chatAdvice: 'หน้าต่างบริบทสั้นกว่าตระกูล Gemini แนะนำใช้กับโหมดมาตรฐาน (~30K)',
+          recThinking: 'Off / Auto',
+          specSummary,
+          specBracket
+        };
+      }
+
+      const longCtx = Number(meta?.inputTokenLimit || 0) >= 500000;
+      const deepThink = meta?.thinking === true;
+      return {
+        category: 'other',
+        badge: '✨ โมเดลอิสระ / รุ่นใหม่จาก AI Studio',
+        badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+        shortTag: deepThink ? '✨ รุ่นใหม่ (รองรับ Thinking)' : '🧩 โมเดลทางเลือก / ทดลอง',
+        transAdvice: meta?.outputTokenLimit >= 32768
+          ? 'รองรับ Output ยาวพิเศษ สามารถแปลตอนยาวต่อเนื่องได้ครบถ้วนโดยไม่ขาดตอน (แนะนำลองแปล 1 ตอนเพื่อเทียบสำนวนไทย)'
+          : 'โมเดลรุ่นอิสระ/ทดลอง — สามารถใช้งานแปลภาษาได้เต็มที่ 100% (กด "ดึงรายชื่อโมเดลล่าสุดจาก API" เพื่อเช็กสเปกจริงจาก Google)',
+        chatAdvice: longCtx
+          ? 'รองรับ Context ขนาดใหญ่ เหมาะใช้กับโหมดถาม-ตอบละเอียดพิเศษ (~150K) และไม่จำกัดเพดาน'
+          : (desc ? 'พร้อมใช้งานถาม-ตอบเนื้อเรื่องและสรุปตอนตามสเปกจาก Google AI Studio' : 'เหมาะกับงานถาม-ตอบเนื้อเรื่องตามบริบทที่ดึงได้'),
+        recThinking: deepThink ? 'Auto หรือ Medium' : 'Auto',
+        specSummary,
+        specBracket
+      };
+    }
+
+    function analyzeTtsModelProfile(ttsModelId, meta = null) {
+      const cleanId = String(ttsModelId || '').trim().replace(/^models\//, '') || DEFAULT_TTS_MODEL;
+      const lower = cleanId.toLowerCase();
+      const specSummary = formatSpecSummary(meta);
+      const specBracket = specSummary ? ` [${specSummary}]` : '';
+
+      if (/\bpro\b|-pro\b/i.test(lower)) {
+        return {
+          badge: '👑 Pro TTS — น้ำเสียงมีมิติ & อารมณ์สมจริงสูงสุด',
+          badgeClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300',
+          shortTag: '👑 เสียงมีมิติ อารมณ์นักพากย์สมจริงสูงสุด',
+          advice: 'เน้นคุณภาพน้ำเสียง โทนสูง-ต่ำ และอารมณ์ตัวละครสมจริงมากที่สุด เหมาะฟังฉากดราม่าหรือฉากสำคัญ (อาจสร้างเสียงต่อย่อหน้านานกว่า Flash เล็กน้อย)',
+          specSummary,
+          specBracket
+        };
+      }
+      if (/flash/i.test(lower)) {
+        return {
+          badge: '⚡ Flash TTS — แนะนำหลัก: เสียงธรรมชาติ & โหลดไวต่อเนื่อง',
+          badgeClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300',
+          shortTag: '⚡ แนะนำหลัก: เสียงธรรมชาติ+โหลดไวทันใจ',
+          advice: 'เหมาะที่สุดสำหรับเปิดฟังนิยายยาวๆ หลายตอน เสียงพากย์ไทยเป็นธรรมชาติและสร้างเสียงทันระบบ Prefetch ล่วงหน้า ฟังต่อเนื่องไม่สะดุด',
+          specSummary,
+          specBracket
+        };
+      }
+      return {
+        badge: '🎙️ โมเดลเสียง AI รุ่นใหม่ / กำหนดเอง',
+        badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+        shortTag: '🎙️ โมเดลเสียง AI / TTS',
+        advice: 'พร้อมใช้งานพากย์เสียงภาษาไทยด้วย Audio Modality จาก Google AI Studio โดยไม่ล็อกชื่อรุ่น',
+        specSummary,
+        specBracket
+      };
+    }
+
+    function renderAiModelRecommendationCard(modelName) {
+      const box = $('aiModelRecommendationCard');
+      if (!box) return;
+      const cleanId = String(modelName || $('inputGeminiModel')?.value || state.translator.geminiModel || 'gemini-2.5-flash')
+        .trim()
+        .replace(/^models\//, '');
+      const meta = liveModelMetaCache.get(cleanId) || null;
+      const p = analyzeAiModelProfile(cleanId, meta);
+      const titleLine = meta?.displayName && meta.displayName !== cleanId
+        ? `${escapeHtml(meta.displayName)} (${escapeHtml(cleanId)})`
+        : escapeHtml(cleanId);
+      const specHtml = p.specSummary
+        ? `<span class="px-2 py-0.5 rounded-full bg-app-subtle text-app-sub text-[10px] font-mono">${escapeHtml(p.specSummary)}</span>`
+        : '<span class="text-[10px] text-app-sub">กด 🔄 ดึงรายชื่อโมเดลฯ เพื่อโหลดสเปกจริงจาก Google AI Studio</span>';
+      const descHtml = meta?.description
+        ? `<div class="text-[11px] text-app-sub/90 italic leading-relaxed border-t border-app/60 pt-1.5 mt-1">ข้อมูลจาก AI Studio: "${escapeHtml(meta.description.slice(0, 190))}${meta.description.length > 190 ? '...' : ''}"</div>`
+        : '';
+
+      box.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-1.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${p.badgeClass}">${escapeHtml(p.badge)}</span>
+          ${specHtml}
+        </div>
+        <div class="text-[11px] font-semibold text-app-main">${titleLine}</div>
+        <div class="space-y-1 text-[11px] text-app-sub leading-relaxed">
+          <div><strong class="text-app-main">📖 งานแปลนิยาย:</strong> ${escapeHtml(p.transAdvice)}</div>
+          <div><strong class="text-app-main">💬 ถาม AI &amp; สรุปเนื้อเรื่อง:</strong> ${escapeHtml(p.chatAdvice)}</div>
+          <div><strong class="text-app-main">🧠 ระดับความคิดที่แนะนำ:</strong> ${escapeHtml(p.recThinking)}</div>
+        </div>
+        ${descHtml}
+      `;
+    }
+
+    function renderTtsModelRecommendationCard(ttsModelName) {
+      const box = $('ttsModelRecommendationCard');
+      if (!box) return;
+      const cleanId = String(ttsModelName || $('inputGeminiTtsModel')?.value || getActiveTtsModel())
+        .trim()
+        .replace(/^models\//, '');
+      const meta = liveModelMetaCache.get(cleanId) || null;
+      const p = analyzeTtsModelProfile(cleanId, meta);
+      const titleLine = meta?.displayName && meta.displayName !== cleanId
+        ? `${escapeHtml(meta.displayName)} (${escapeHtml(cleanId)})`
+        : escapeHtml(cleanId);
+      const specHtml = p.specSummary
+        ? `<span class="px-2 py-0.5 rounded-full bg-app-subtle text-app-sub text-[10px] font-mono">${escapeHtml(p.specSummary)}</span>`
+        : '';
+      box.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-1.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${p.badgeClass}">${escapeHtml(p.badge)}</span>
+          ${specHtml}
+        </div>
+        <div class="text-[11px] font-semibold text-app-main">${titleLine}</div>
+        <div class="text-[11px] text-app-sub leading-relaxed">${escapeHtml(p.advice)}</div>
+      `;
     }
 
     function updateAiStudioThinkingHint(modelName) {
@@ -4312,31 +4558,31 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
     }
 
-    async function syncModelThinkingMetadata(modelName) {
+    async function syncModelThinkingMetadata(modelName, isTts = false) {
       const cleanModel = String(modelName || '').trim().replace(/^models\//, '');
-      if (!cleanModel || liveModelMetaCache.has(cleanModel)) {
+      if (isTts) {
+        renderTtsModelRecommendationCard(cleanModel);
+      } else {
         updateAiStudioThinkingHint(cleanModel);
+        renderAiModelRecommendationCard(cleanModel);
+      }
+      if (!cleanModel || liveModelMetaCache.has(cleanModel)) {
         return;
       }
       const draftActive = state.draftSavedKeys.find((k) => k.id === state.draftActiveKeyId);
       const apiKey = $('inputGeminiApiKey')?.value.trim() || draftActive?.key || state.translator.geminiApiKey;
-      if (!apiKey) {
-        updateAiStudioThinkingHint(cleanModel);
-        return;
-      }
+      if (!apiKey) return;
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanModel)}?key=${encodeURIComponent(apiKey)}`);
         if (!res.ok) return;
         const m = await res.json().catch(() => null);
         if (m && m.name) {
-          liveModelMetaCache.set(cleanModel, {
-            thinking: m.thinking,
-            outputTokenLimit: m.outputTokenLimit,
-            inputTokenLimit: m.inputTokenLimit,
-            displayName: m.displayName || cleanModel
-          });
-          if ($('inputGeminiModel')?.value.trim().replace(/^models\//, '') === cleanModel) {
+          cacheModelMetaFromApi(m);
+          if (!isTts && $('inputGeminiModel')?.value.trim().replace(/^models\//, '') === cleanModel) {
             updateAiStudioThinkingHint(cleanModel);
+            renderAiModelRecommendationCard(cleanModel);
+          } else if (isTts && $('inputGeminiTtsModel')?.value.trim().replace(/^models\//, '') === cleanModel) {
+            renderTtsModelRecommendationCard(cleanModel);
           }
         }
       } catch (e) {}
@@ -4355,7 +4601,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       renderSavedModelsChips();
       $('fetchedModelsWrap').classList.add('hidden');
 
-      $('inputGeminiTtsModel').value = getActiveTtsModel();
+      const activeTts = getActiveTtsModel();
+      $('inputGeminiTtsModel').value = activeTts;
       renderSavedTtsModelsChips();
       $('fetchedTtsModelsWrap').classList.add('hidden');
 
@@ -4371,11 +4618,18 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           : curLvl;
       }
       updateThinkingBudgetVisibility();
-      updateAiStudioThinkingHint(activeModel);
-      syncModelThinkingMetadata(activeModel);
+      syncModelThinkingMetadata(activeModel, false);
+      syncModelThinkingMetadata(activeTts, true);
 
       $('inputDefaultTransStyle').value = state.translator.defaultStyle || DEFAULT_TRANS_STYLE;
       $('transSettingsModalBackdrop').classList.remove('hidden');
+    }
+
+    function buildModelOptgroupHtml(label, entries, labelBuilderFn) {
+      if (!entries || entries.length === 0) return '';
+      return `<optgroup label="${escapeHtml(label)}">` +
+        entries.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(labelBuilderFn(entry))}</option>`).join('') +
+        '</optgroup>';
     }
 
     async function fetchLiveGeminiModels() {
@@ -4394,56 +4648,71 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         const rawModels = Array.isArray(data.models) ? data.models : [];
-        rawModels.forEach((m) => {
-          const id = String(m.name || '').replace(/^models\//, '');
-          if (id) {
-            liveModelMetaCache.set(id, {
-              thinking: m.thinking,
-              outputTokenLimit: m.outputTokenLimit,
-              inputTokenLimit: m.inputTokenLimit,
-              displayName: m.displayName || id
-            });
-          }
-        });
+        rawModels.forEach(cacheModelMetaFromApi);
+
         const genEntries = rawModels
           .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-          .map((m) => ({
-            id: String(m.name || '').replace(/^models\//, ''),
-            desc: `${m.name || ''} ${m.displayName || ''} ${m.description || ''}`
-          }))
-          .filter((m) => m.id);
-        const models = genEntries.map((m) => m.id);
-        if (!models.length) {
+          .map((m) => {
+            const id = String(m.name || '').replace(/^models\//, '');
+            const meta = liveModelMetaCache.get(id) || null;
+            return {
+              id,
+              desc: `${m.name || ''} ${m.displayName || ''} ${m.description || ''}`,
+              meta,
+              profile: analyzeAiModelProfile(id, meta),
+              sortScore: extractModelSortScore(id)
+            };
+          })
+          .filter((m) => m.id)
+          .sort((a, b) => b.sortScore - a.sortScore || a.id.localeCompare(b.id));
+
+        if (!genEntries.length) {
           showToast('ไม่พบโมเดล generateContent จากคีย์นี้');
           return;
         }
+
+        const groups = {
+          pro: genEntries.filter((e) => e.profile.category === 'pro'),
+          flash: genEntries.filter((e) => e.profile.category === 'flash'),
+          lite: genEntries.filter((e) => e.profile.category === 'lite'),
+          other: genEntries.filter((e) => e.profile.category === 'other'),
+          special: genEntries.filter((e) => e.profile.category === 'special')
+        };
+
         const sel = $('selectFetchedModel');
-        sel.innerHTML = '<option value="">-- คลิกเลือกโมเดลจากรายการสด (' + models.length + ' รุ่น) --</option>' +
-          models.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+        const textOptionLabel = (e) => `${e.id} — ${e.profile.shortTag}${e.profile.specBracket}`;
+        sel.innerHTML =
+          `<option value="">-- คลิกเลือกโมเดลแนะนำจาก AI Studio (${genEntries.length} รุ่น) --</option>` +
+          buildModelOptgroupHtml('👑 ระดับ Pro / เรือธง — แปลวรรณศิลป์ลึก & วิเคราะห์ปมดีที่สุด', groups.pro, textOptionLabel) +
+          buildModelOptgroupHtml('⚡ ระดับ Flash (แนะนำหลัก) — แปลนิยายลื่นไหล & ถาม-ตอบ RAG สมดุลที่สุด', groups.flash, textOptionLabel) +
+          buildModelOptgroupHtml('🚀 ระดับ Flash-Lite — เร็วสุด+ประหยัด เหมาะแปลรัวหลายตอน (Batch)', groups.lite, textOptionLabel) +
+          buildModelOptgroupHtml('🧩 โมเดลทางเลือก / รุ่นทดลอง (Gemma / อื่นๆ)', groups.other, textOptionLabel) +
+          buildModelOptgroupHtml('🎙️ โมเดลเฉพาะทาง เสียง/ภาพ (ใช้ในช่อง TTS ด้านล่าง ไม่แนะนำแปลข้อความ)', groups.special, textOptionLabel);
         $('fetchedModelsWrap').classList.remove('hidden');
 
-        const ttsMatches = genEntries.filter((m) => /tts|speech|audio/i.test(m.desc)).map((m) => m.id);
-        const otherModels = models.filter((id) => !ttsMatches.includes(id));
-        liveDiscoveredTtsModels = ttsMatches;
+        const ttsEntries = genEntries.filter((e) => /tts|speech|audio/i.test(e.desc));
+        const otherForTts = genEntries.filter((e) => !/tts|speech|audio/i.test(e.desc));
+        liveDiscoveredTtsModels = ttsEntries.map((e) => e.id);
         const ttsSel = $('selectFetchedTtsModel');
         if (ttsSel) {
-          let ttsOpts = '<option value="">-- คลิกเลือกโมเดลเสียง TTS (' + (ttsMatches.length || models.length) + ' รุ่น) --</option>';
-          if (ttsMatches.length > 0) {
-            ttsOpts += '<optgroup label="🎙️ โมเดลเสียง / TTS">' +
-              ttsMatches.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('') +
-              '</optgroup>';
-          }
-          if (otherModels.length > 0) {
-            ttsOpts += '<optgroup label="โมเดล generateContent อื่นๆ">' +
-              otherModels.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('') +
-              '</optgroup>';
-          }
-          ttsSel.innerHTML = ttsOpts;
+          const ttsOptionLabel = (e) => {
+            const tp = analyzeTtsModelProfile(e.id, e.meta);
+            return `${e.id} — ${tp.shortTag}${tp.specBracket}`;
+          };
+          ttsSel.innerHTML =
+            `<option value="">-- คลิกเลือกโมเดลเสียง TTS (${ttsEntries.length || genEntries.length} รุ่น) --</option>` +
+            buildModelOptgroupHtml('🎙️ โมเดลเสียง / TTS (แนะนำสำหรับอ่านนิยาย)', ttsEntries, ttsOptionLabel) +
+            buildModelOptgroupHtml('โมเดล generateContent อื่นๆ', otherForTts, (e) => `${e.id}${e.profile.specBracket}`);
           $('fetchedTtsModelsWrap').classList.remove('hidden');
         }
+
         populateTtsModelQuickSelect();
-        updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
-        showToast(`พบ ${models.length} โมเดล (TTS ${ttsMatches.length} รุ่น) และซิงก์จาก AI Studio แล้ว`);
+        const curModel = $('inputGeminiModel').value.trim();
+        const curTts = $('inputGeminiTtsModel').value.trim();
+        updateAiStudioThinkingHint(curModel);
+        renderAiModelRecommendationCard(curModel);
+        renderTtsModelRecommendationCard(curTts);
+        showToast(`พบ ${genEntries.length} โมเดล (Pro ${groups.pro.length} • Flash ${groups.flash.length} • TTS ${ttsEntries.length}) พร้อมคำแนะนำจาก AI Studio แล้ว`);
       } catch (err) {
         showToast('ดึงรายชื่อโมเดลไม่สำเร็จ: ' + (err?.message || 'ผิดพลาด'));
       } finally {
@@ -5134,8 +5403,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     }
 
     $('inputGeminiModel').addEventListener('input', () => {
+      const m = $('inputGeminiModel').value.trim();
       renderSavedModelsChips();
-      updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
+      updateAiStudioThinkingHint(m);
+      renderAiModelRecommendationCard(m);
     });
     $('btnRememberModel').addEventListener('click', () => {
       rememberDraftModel({
@@ -5150,12 +5421,14 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       if (e.target.value) {
         $('inputGeminiModel').value = e.target.value;
         renderSavedModelsChips();
-        updateAiStudioThinkingHint(e.target.value);
-        syncModelThinkingMetadata(e.target.value);
+        syncModelThinkingMetadata(e.target.value, false);
       }
     });
 
-    $('inputGeminiTtsModel').addEventListener('input', renderSavedTtsModelsChips);
+    $('inputGeminiTtsModel').addEventListener('input', () => {
+      renderSavedTtsModelsChips();
+      renderTtsModelRecommendationCard($('inputGeminiTtsModel').value.trim());
+    });
     $('btnRememberTtsModel').addEventListener('click', () => {
       rememberDraftModel({
         inputId: 'inputGeminiTtsModel',
@@ -5169,6 +5442,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       if (e.target.value) {
         $('inputGeminiTtsModel').value = e.target.value;
         renderSavedTtsModelsChips();
+        syncModelThinkingMetadata(e.target.value, true);
       }
     });
     $('selectThinkingLevel').addEventListener('change', updateThinkingBudgetVisibility);
