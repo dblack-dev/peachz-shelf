@@ -3,7 +3,7 @@
  * - CDN (Tailwind / Google Fonts): stale-while-revalidate
  * - Firebase / Google Auth / Firestore APIs: ผ่านเน็ตตรง ๆ ไม่แคช
  */
-const VERSION = 'v2.0.0';
+const VERSION = 'v2.1.0';
 const SHELL_CACHE = `peachz-shelf-shell-${VERSION}`;
 const RUNTIME_CACHE = `peachz-shelf-runtime-${VERSION}`;
 

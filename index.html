@@ -1266,6 +1266,12 @@
             <span>🛡️ โหมดกันสปอยล์ ถึง:</span>
           </label>
           <select id="selectChatMaxOrder" class="max-w-[190px] px-2.5 py-1 rounded-xl bg-app-surface border border-app text-[11px] font-medium text-app-main focus:outline-none"></select>
+          <select id="selectChatContextDepth" title="ปริมาณเนื้อหาที่ส่งให้ AI อ่าน"
+            class="px-2.5 py-1 rounded-xl bg-app-surface border border-app text-[11px] font-semibold text-app-main focus:outline-none">
+            <option value="standard">⚡ มาตรฐาน (~30K • ประหยัดโควตา)</option>
+            <option value="deep" selected>🔍 ละเอียดพิเศษ (~150K • แนะนำ)</option>
+            <option value="unlimited">♾️ ไม่จำกัดเพดาน (ส่งเต็มทุกตอน)</option>
+          </select>
         </div>
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="btnChatOpenSavedQa" type="button"
@@ -4924,10 +4930,13 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     function buildNovelContextUpTo(novel, maxOrder = null, charBudget = 32000, includeWiki = false) {
       if (!novel) return '';
       const sorted = getSortedChaptersAsc().filter((c) => maxOrder == null || Number(c.order) <= Number(maxOrder));
-      const glossary = String(novel.glossary || '').trim().slice(0, 3500);
-      const synopsis = String(novel.translatedSynopsis || novel.synopsis || '').trim().slice(0, 2000);
-      const notes = String(novel.notes || '').trim().slice(0, 2000);
-      const wiki = includeWiki ? String(novel.characterWiki || '').trim().slice(0, 4500) : '';
+      const isUnlimited = !Number.isFinite(charBudget) || charBudget <= 0;
+      const glossary = isUnlimited ? String(novel.glossary || '').trim() : String(novel.glossary || '').trim().slice(0, 3500);
+      const synopsis = isUnlimited ? String(novel.translatedSynopsis || novel.synopsis || '').trim() : String(novel.translatedSynopsis || novel.synopsis || '').trim().slice(0, 2000);
+      const notes = isUnlimited ? String(novel.notes || '').trim() : String(novel.notes || '').trim().slice(0, 2000);
+      const wiki = includeWiki
+        ? (isUnlimited ? String(novel.characterWiki || '').trim() : String(novel.characterWiki || '').trim().slice(0, 4500))
+        : '';
 
       const headerParts = [
         `ชื่อเรื่อง: ${novel.translatedTitle || novel.title}`,
@@ -4940,12 +4949,21 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       ].filter(Boolean);
 
       const headerText = headerParts.join('\n\n');
-      let remaining = Math.max(4000, charBudget - headerText.length);
-
       if (sorted.length === 0) {
         return `${headerText}\n\n(ยังไม่มีตอนในขอบเขตนี้)`;
       }
 
+      if (isUnlimited) {
+        const fullBlocks = sorted.map((ch) => {
+          const chTitle = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
+          const noteStr = String(ch.note || '').trim();
+          const bodyStr = String(ch.translatedContent || ch.content || '').trim();
+          return `[${chTitle}]${noteStr ? `\nสรุปตอน: ${noteStr}` : ''}\nเนื้อหาฉบับเต็ม:\n${bodyStr || '(ยังไม่มีเนื้อหา)'}`;
+        });
+        return `${headerText}\n\n=== เนื้อหาฉบับเต็มทั้งหมดตามลำดับตอน (${sorted.length} ตอน) ===\n${fullBlocks.join('\n\n')}`;
+      }
+
+      let remaining = Math.max(4000, charBudget - headerText.length);
       const chapterBlocksRev = [];
       let skippedCount = 0;
       for (let i = sorted.length - 1; i >= 0; i--) {
@@ -5675,7 +5693,13 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return out.join('\n\n');
     }
 
-    function buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoilerChecked) {
+    const CHAT_CONTEXT_DEPTH_CONFIG = {
+      standard: { totalBudget: 30000, explicitCap: 10000, keywordTop: 4, keywordCap: 6500, overviewBudget: 26000 },
+      deep: { totalBudget: 120000, explicitCap: 35000, keywordTop: 12, keywordCap: 15000, overviewBudget: 45000 },
+      unlimited: { totalBudget: Infinity, explicitCap: Infinity, keywordTop: 20, keywordCap: Infinity, overviewBudget: Infinity }
+    };
+
+    function buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoilerChecked, depthMode = 'deep') {
       const sortedAll = getSortedChaptersAsc();
       if (!novel || sortedAll.length === 0) {
         return {
@@ -5686,6 +5710,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         };
       }
 
+      const cfg = CHAT_CONTEXT_DEPTH_CONFIG[depthMode] || CHAT_CONTEXT_DEPTH_CONFIG.deep;
+      const isUnlimited = depthMode === 'unlimited';
       const intent = parseQuestionRetrievalIntent(question, novel, sortedAll, noSpoilerChecked ? selectedMaxOrder : null);
       const autoUnlockedSpoiler = Boolean(noSpoilerChecked && intent.wantsSpoiler);
       const effectiveMaxOrder = (noSpoilerChecked && !intent.wantsSpoiler) ? selectedMaxOrder : null;
@@ -5694,27 +5720,29 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const blocks = [];
       const matchedChapterLabels = [];
       const usedIds = new Set();
-      let remainingBudget = 30000;
+      let remainingBudget = cfg.totalBudget;
 
       // Pass A: Explicit chapter numbers/ranges/ending requested directly by the user
       for (const ch of allowed) {
         if (!intent.explicitOrders.has(Number(ch.order))) continue;
-        if (remainingBudget < 500) break;
-        const perCap = Math.min(10000, remainingBudget);
-        const noteStr = String(ch.note || '').trim();
-        const thStr = String(ch.translatedContent || '').trim();
-        const origStr = String(ch.content || '').trim();
-        const bodyText = (thStr || origStr).slice(0, perCap);
+        if (!isUnlimited && remainingBudget < 500) break;
         const label = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
-        const block = `[ตอนที่ถูกอ้างถึงโดยตรง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nเนื้อหาเต็ม/ตัดตอน:\n${bodyText || '(ยังไม่มีเนื้อหาในตอนนี้)'}`;
-        blocks.push(block);
         matchedChapterLabels.push(label);
         usedIds.add(ch.id);
-        remainingBudget -= block.length;
+        if (!isUnlimited) {
+          const perCap = Math.min(cfg.explicitCap, remainingBudget);
+          const noteStr = String(ch.note || '').trim();
+          const thStr = String(ch.translatedContent || '').trim();
+          const origStr = String(ch.content || '').trim();
+          const bodyText = (thStr || origStr).slice(0, perCap);
+          const block = `[ตอนที่ถูกอ้างถึงโดยตรง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nเนื้อหาเต็ม/ตัดตอน:\n${bodyText || '(ยังไม่มีเนื้อหาในตอนนี้)'}`;
+          blocks.push(block);
+          remainingBudget -= block.length;
+        }
       }
 
       // Pass B: Bilingual keyword & glossary hit retrieval across allowed chapters
-      if (intent.keywords.length > 0 && remainingBudget > 1500) {
+      if (intent.keywords.length > 0 && (isUnlimited || remainingBudget > 1500)) {
         const lowerKws = intent.keywords.map((k) => k.toLowerCase());
         const scoredChapters = [];
         for (const ch of allowed) {
@@ -5736,19 +5764,21 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         }
 
         scoredChapters.sort((a, b) => b.score - a.score || Number(a.ch.order) - Number(b.ch.order));
-        for (const item of scoredChapters.slice(0, 4)) {
-          if (remainingBudget < 800) break;
+        for (const item of scoredChapters.slice(0, cfg.keywordTop)) {
+          if (!isUnlimited && remainingBudget < 800) break;
           const ch = item.ch;
-          const perCap = Math.min(6500, remainingBudget);
-          const excerpt = extractRelevantChapterExcerpts(ch, intent.keywords, perCap);
-          if (!excerpt) continue;
           const label = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
-          const noteStr = String(ch.note || '').trim();
-          const block = `[ตอนที่พบคำค้นที่เกี่ยวข้อง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nช่วงเนื้อหาที่ตรงคำถาม:\n${excerpt}`;
-          blocks.push(block);
           matchedChapterLabels.push(label);
           usedIds.add(ch.id);
-          remainingBudget -= block.length;
+          if (!isUnlimited) {
+            const perCap = Math.min(cfg.keywordCap, remainingBudget);
+            const excerpt = extractRelevantChapterExcerpts(ch, intent.keywords, perCap);
+            if (!excerpt) continue;
+            const noteStr = String(ch.note || '').trim();
+            const block = `[ตอนที่พบคำค้นที่เกี่ยวข้อง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nช่วงเนื้อหาที่ตรงคำถาม:\n${excerpt}`;
+            blocks.push(block);
+            remainingBudget -= block.length;
+          }
         }
       }
 
@@ -5778,17 +5808,20 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       btn.disabled = true;
       btn.textContent = 'กำลังค้น & ตอบ...';
 
-      try {
-        const noSpoiler = $('chkChatNoSpoiler').checked;
-        const selectedMaxOrder = noSpoiler && state.chapters.length > 0 ? Number($('selectChatMaxOrder').value) : null;
+      const noSpoiler = $('chkChatNoSpoiler').checked;
+      const selectedMaxOrder = noSpoiler && state.chapters.length > 0 ? Number($('selectChatMaxOrder').value) : null;
+      const requestedDepth = $('selectChatContextDepth')?.value || 'deep';
+
+      const executeChatForDepth = async (depthMode) => {
+        const cfg = CHAT_CONTEXT_DEPTH_CONFIG[depthMode] || CHAT_CONTEXT_DEPTH_CONFIG.deep;
         const {
           retrievedText,
           matchedChapterLabels,
           autoUnlockedSpoiler,
           effectiveMaxOrder
-        } = buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoiler);
+        } = buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoiler, depthMode);
 
-        const ctx = buildNovelContextUpTo(novel, effectiveMaxOrder, 26000, effectiveMaxOrder == null);
+        const ctx = buildNovelContextUpTo(novel, effectiveMaxOrder, cfg.overviewBudget, effectiveMaxOrder == null);
         const recentTurns = state.novelChatHistory
           .slice(-7, -1)
           .filter((m) => !m.isError)
@@ -5804,16 +5837,20 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           'ตอบอ้างอิงจากบริบทและเนื้อหาตอนที่แนบมาให้เท่านั้น หากไม่มีข้อมูลในตอนที่มีในคลังให้บอกตามตรงอย่างสุภาพ'
         ].filter(Boolean).join('\n\n');
 
+        const unlimitedFocusHint = (depthMode === 'unlimited' && matchedChapterLabels.length > 0)
+          ? `จุดโฟกัสเพิ่มเติม: ตอนที่เกี่ยวข้องกับคำถามนี้โดยตรงคือ ${matchedChapterLabels.join(', ')}`
+          : '';
+
         const prompt = [
-          `บริบทภาพรวมของนิยาย:\n${ctx}`,
-          retrievedText ? `=== เนื้อหาเจาะลึกของตอนที่เกี่ยวข้องกับคำถามโดยตรง ===\n${retrievedText}` : '',
+          `บริบท${depthMode === 'unlimited' ? 'ฉบับเต็มทุกตอน' : 'ภาพรวม'}ของนิยาย:\n${ctx}`,
+          retrievedText ? `=== เนื้อหาเจาะลึกของตอนที่เกี่ยวข้องกับคำถามโดยตรง ===\n${retrievedText}` : unlimitedFocusHint,
           recentTurns ? `ประวัติการถาม-ตอบก่อนหน้า:\n${recentTurns}` : '',
           `คำถามล่าสุดจากผู้อ่าน (ช่วยอธิบายคำตอบอย่างละเอียด ครบถ้วนทุกแง่มุม ไม่ต้องย่อสั้น):\n${question}`
         ].filter(Boolean).join('\n\n---\n\n');
 
         const reply = await callGeminiWithSanitizedRetry(prompt, sysPrompt, () => {
-          const safeCtx = sanitizeTextForAiFilter(buildNovelContextUpTo(novel, effectiveMaxOrder, 16000, effectiveMaxOrder == null));
-          const safeRet = retrievedText ? sanitizeTextForAiFilter(retrievedText.slice(0, 8000)) : '';
+          const safeCtx = sanitizeTextForAiFilter(buildNovelContextUpTo(novel, effectiveMaxOrder, 20000, effectiveMaxOrder == null));
+          const safeRet = retrievedText ? sanitizeTextForAiFilter(retrievedText.slice(0, 12000)) : '';
           return {
             sysPrompt: `${sysPrompt}\n\nหมายเหตุระบบ: ตอบโดยใช้ภาษาสุภาพและเปรียบเปรยเชิงวรรณกรรมระดับ PG-13 หลีกเลี่ยงคำรุนแรงหรือฉากทางเพศโดยตรง แต่ยังคงความละเอียดครบถ้วนของเหตุการณ์`,
             prompt: [
@@ -5824,15 +5861,37 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
             ].filter(Boolean).join('\n\n---\n\n')
           };
         });
+
+        return { reply, matchedChapterLabels, autoUnlockedSpoiler };
+      };
+
+      try {
+        let autoFallbackFromUnlimited = false;
+        let result;
+        try {
+          result = await executeChatForDepth(requestedDepth);
+        } catch (err) {
+          if (requestedDepth === 'unlimited' && /429|quota|rate.?limit|RESOURCE_EXHAUSTED|token|too large|exceeds|limit/i.test(String(err?.message || ''))) {
+            autoFallbackFromUnlimited = true;
+            result = await executeChatForDepth('deep');
+          } else {
+            throw err;
+          }
+        }
+
+        const { reply, matchedChapterLabels, autoUnlockedSpoiler } = result;
         let finalReply = reply;
-        if (matchedChapterLabels.length > 0 || autoUnlockedSpoiler) {
-          const footerParts = [];
-          if (matchedChapterLabels.length > 0) {
-            footerParts.push(`📌 อ้างอิงเนื้อหาเจาะลึกจาก: ${matchedChapterLabels.join(', ')}`);
-          }
-          if (autoUnlockedSpoiler) {
-            footerParts.push('🔓 ปลดล็อกโหมดกันสปอยล์เฉพาะคำถามนี้ตามคำขอของคุณแล้ว');
-          }
+        const footerParts = [];
+        if (matchedChapterLabels.length > 0) {
+          footerParts.push(`📌 อ้างอิงเนื้อหาเจาะลึกจาก: ${matchedChapterLabels.join(', ')}`);
+        }
+        if (autoUnlockedSpoiler) {
+          footerParts.push('🔓 ปลดล็อกโหมดกันสปอยล์เฉพาะคำถามนี้ตามคำขอของคุณแล้ว');
+        }
+        if (autoFallbackFromUnlimited) {
+          footerParts.push('ℹ️ เนื้อหาทั้งหมดของเรื่องเกินเพดาน Token ต่อคำขอของคีย์นี้ ระบบจึงปรับมาใช้โหมด "🔍 ละเอียดพิเศษ (~150K)" ให้อัตโนมัติ');
+        }
+        if (footerParts.length > 0) {
           finalReply = `${reply}\n\n${footerParts.join('\n')}`;
         }
 
