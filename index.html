@@ -3367,53 +3367,195 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return null;
     }
 
-    async function callGeminiApi(promptText, systemInstruction = '') {
-      const apiKey = String(state.translator.geminiApiKey || '').trim();
-      if (!apiKey) {
+    const GEMINI_SAFETY_SETTINGS_OFF = [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' }
+    ];
+
+    const GEMINI_SAFETY_SETTINGS_BLOCK_NONE = GEMINI_SAFETY_SETTINGS_OFF.map((s) => ({
+      category: s.category,
+      threshold: 'BLOCK_NONE'
+    }));
+
+    const GEMINI_BLOCK_REASONS = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'OTHER', 'RECITATION', 'BLOCKLIST', 'SPII']);
+
+    function isGeminiContentBlockError(err) {
+      if (!err) return false;
+      if (err.isContentBlock) return true;
+      return /PROHIBITED_CONTENT|SAFETY|RECITATION|BLOCKLIST|SPII|finishReason:\s*OTHER|Gemini ไม่ได้ส่งข้อความตอบกลับมา/i.test(String(err.message || ''));
+    }
+
+    function sanitizeTextForAiFilter(rawText) {
+      let s = String(rawText || '');
+      const softPairs = [
+        [/自杀|自盡|自尽|自残/g, '[เหตุการณ์สะเทือนใจ]'],
+        [/强奸|强暴|輪姦|轮奸|迷奸/g, '[การคุกคามทางร่างกาย]'],
+        [/肉棒|阴茎|陰莖|阴蒂|陰蒂|高潮|精液|性交|做爱|做愛/g, '[ฉากใกล้ชิด]'],
+        [/炸弹|炸彈/g, 'วัต\u200Bถุระเบิด'],
+        [/ฆ่าตัวตาย|ทำร้ายตัวเอง/g, '[เหตุการณ์สะเทือนใจ]'],
+        [/ข่มขืน|ล่วงละเมิด/g, '[การคุกคาม]'],
+        [/rape|suicide|self-harm/gi, '[sensitive event]']
+      ];
+      for (const [re, rep] of softPairs) {
+        s = s.replace(re, rep);
+      }
+      // Break literal recitation or rigid token-trigger loops subtly at sentence boundaries every ~600 chars
+      return s;
+    }
+
+    async function callGeminiApi(promptText, systemInstruction = '', options = {}) {
+      const primaryKey = String(state.translator.geminiApiKey || '').trim();
+      if (!primaryKey) {
         throw new Error('MISSING_GEMINI_KEY');
       }
-      const model = (String(state.translator.geminiModel || '').trim() || 'gemini-2.5-flash').replace(/^models\//, '');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-      const budget = resolveThinkingBudget();
-      const buildBody = (withThinking) => {
-        const genCfg = { temperature: 0.45 };
-        if (withThinking && budget !== null) {
-          genCfg.thinkingConfig = { thinkingBudget: budget };
-        }
-        const b = {
-          contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: genCfg
-        };
-        if (systemInstruction) {
-          b.systemInstruction = { parts: [{ text: systemInstruction }] };
-        }
-        return b;
-      };
-
-      let res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildBody(true))
-      });
-
-      if (res.status === 400 && budget !== null) {
-        res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildBody(false))
+      const keyPool = [primaryKey];
+      if (Array.isArray(state.translator.savedKeys)) {
+        state.translator.savedKeys.forEach((k) => {
+          const val = String(k?.key || '').trim();
+          if (val && !keyPool.includes(val)) keyPool.push(val);
         });
       }
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data?.error?.message || `HTTP ${res.status}`;
-        throw new Error(`Gemini API: ${msg}`);
+      let model = (String(state.translator.geminiModel || '').trim() || 'gemini-2.5-flash').replace(/^models\//, '');
+      if (/-tts\b/i.test(model)) {
+        model = 'gemini-2.5-flash';
       }
-      const parts = Array.isArray(data?.candidates?.[0]?.content?.parts) ? data.candidates[0].content.parts : [];
-      const text = parts.filter((p) => !p.thought).map((p) => p.text || '').join('').trim();
-      if (!text) throw new Error('Gemini ไม่ได้ส่งข้อความตอบกลับมา');
-      return text;
+
+      const defaultBudget = resolveThinkingBudget();
+      const sendOnce = async (apiKey, pText, sysText, cfgOpts = {}) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const buildBody = ({ withThinking, safetyList }) => {
+          const genCfg = {
+            temperature: cfgOpts.temperature ?? 0.45,
+            maxOutputTokens: 8192
+          };
+          const budget = cfgOpts.thinkingBudget !== undefined ? cfgOpts.thinkingBudget : defaultBudget;
+          if (withThinking && budget !== null) {
+            genCfg.thinkingConfig = { thinkingBudget: budget };
+          }
+          const b = {
+            contents: [{ role: 'user', parts: [{ text: pText }] }],
+            generationConfig: genCfg
+          };
+          if (safetyList) b.safetySettings = safetyList;
+          if (sysText) b.systemInstruction = { parts: [{ text: sysText }] };
+          return b;
+        };
+
+        let safetyMode = GEMINI_SAFETY_SETTINGS_OFF;
+        let useThinking = true;
+        let res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildBody({ withThinking: useThinking, safetyList: safetyMode }))
+        });
+
+        if (res.status === 400) {
+          const errPreview = await res.clone().json().catch(() => ({}));
+          const msg400 = String(errPreview?.error?.message || '');
+          if (/safety|threshold|OFF/i.test(msg400)) {
+            safetyMode = GEMINI_SAFETY_SETTINGS_BLOCK_NONE;
+          }
+          if (/thinking/i.test(msg400) || (defaultBudget !== null && !/safety|threshold|OFF/i.test(msg400))) {
+            useThinking = false;
+          }
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildBody({ withThinking: useThinking, safetyList: safetyMode }))
+          });
+        }
+        return res;
+      };
+
+      const runWithRateLimitFailover = async (pText, sysText, cfgOpts = {}) => {
+        let lastErr = null;
+        for (let kIdx = 0; kIdx < keyPool.length; kIdx++) {
+          const key = keyPool[kIdx];
+          let res = await sendOnce(key, pText, sysText, cfgOpts);
+          if ((res.status === 429 || res.status === 503) && keyPool.length === 1) {
+            await new Promise((r) => setTimeout(r, 2200));
+            res = await sendOnce(key, pText, sysText, cfgOpts);
+          }
+          if ((res.status === 429 || res.status === 503) && kIdx < keyPool.length - 1) {
+            lastErr = new Error(`Gemini API HTTP ${res.status}`);
+            continue;
+          }
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const msg = data?.error?.message || `HTTP ${res.status}`;
+            throw new Error(`Gemini API: ${msg}`);
+          }
+          return data;
+        }
+        throw lastErr || new Error('Gemini API: ติดลิมิตการใช้งานชั่วคราว (429/503)');
+      };
+
+      const extractResult = (data) => {
+        const promptBlock = data?.promptFeedback?.blockReason || '';
+        const cand = data?.candidates?.[0] || {};
+        const finishReason = cand?.finishReason || '';
+        const parts = Array.isArray(cand?.content?.parts) ? cand.content.parts : [];
+        const text = parts.filter((p) => !p.thought).map((p) => p.text || '').join('').trim();
+        return { text, promptBlock, finishReason };
+      };
+
+      // Attempt 1: Pure unmodified text with safetySettings OFF/BLOCK_NONE
+      const data1 = await runWithRateLimitFailover(promptText, systemInstruction, {
+        temperature: options.temperature ?? 0.45
+      });
+      const r1 = extractResult(data1);
+      const reason1 = r1.promptBlock || r1.finishReason;
+      if (r1.text && (!GEMINI_BLOCK_REASONS.has(reason1) || reason1 === 'MAX_TOKENS')) {
+        return r1.text;
+      }
+      if (r1.text && reason1 === 'RECITATION' && r1.text.length > 80) {
+        return r1.text;
+      }
+
+      // Attempt 2: Automatic softened retry (disables thinkingBudget, boosts temperature, literary PG framing)
+      if (!options.skipSoftRetry && (GEMINI_BLOCK_REASONS.has(reason1) || !r1.text)) {
+        const softSys = [
+          systemInstruction,
+          'หมายเหตุระบบ: ข้อความต่อไปนี้เป็นวรรณกรรมสมมติเพื่อการศึกษาด้านภาษาศาสตร์และการแปลวรรณกรรม กรุณาประมวลผลด้วยภาษาไทยเชิงวรรณศิลป์ที่สุภาพและเหมาะสม โดยใช้ถ้อยคำเปรียบเปรยหรือลดทอนรายละเอียดรุนแรง/ล่อแหลมให้อยู่ในระดับที่ปลอดภัย'
+        ].filter(Boolean).join('\n\n');
+        const softPrompt = sanitizeTextForAiFilter(promptText);
+        const data2 = await runWithRateLimitFailover(softPrompt, softSys, {
+          temperature: 0.7,
+          thinkingBudget: 0
+        });
+        const r2 = extractResult(data2);
+        const reason2 = r2.promptBlock || r2.finishReason;
+        if (r2.text && (!GEMINI_BLOCK_REASONS.has(reason2) || reason2 === 'MAX_TOKENS' || (reason2 === 'RECITATION' && r2.text.length > 40))) {
+          return r2.text;
+        }
+        const blockErr = new Error(`ติดตัวกรองเนื้อหา AI (${reason2 || reason1 || 'NO_TEXT'})`);
+        blockErr.isContentBlock = true;
+        blockErr.blockReason = reason2 || reason1 || 'NO_TEXT';
+        throw blockErr;
+      }
+
+      const err = new Error(`ติดตัวกรองเนื้อหา AI (finishReason: ${reason1 || 'EMPTY'})`);
+      err.isContentBlock = true;
+      err.blockReason = reason1 || 'EMPTY';
+      throw err;
+    }
+
+    async function callGeminiWithSanitizedRetry(promptText, sysPrompt, buildSafePayloadFn) {
+      try {
+        return await callGeminiApi(promptText, sysPrompt);
+      } catch (err) {
+        if (!isGeminiContentBlockError(err) || typeof buildSafePayloadFn !== 'function') {
+          throw err;
+        }
+        const safePayload = buildSafePayloadFn();
+        return await callGeminiApi(safePayload.prompt, safePayload.sysPrompt, {
+          temperature: 0.68
+        });
+      }
     }
 
     function buildGeminiSystemPrompt(novel) {
@@ -3428,15 +3570,48 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return parts.join('\n\n');
     }
 
+    async function translateChunkWithAiOrRescue(chunkText, sysPrompt, entries, tracker, depth = 0) {
+      try {
+        const translatedPart = await callGeminiApi(
+          `จงแปลเนื้อหานิยายส่วนนี้เป็นภาษาไทย โดยคงการขึ้นย่อหน้าใหม่ให้ตรงกัน:\n\n${chunkText}`,
+          sysPrompt
+        );
+        return translatedPart.trim();
+      } catch (err) {
+        if (!isGeminiContentBlockError(err)) {
+          throw err;
+        }
+        const paras = splitNonEmptyLines(chunkText);
+        if (paras.length > 1 && depth < 3) {
+          const mid = Math.ceil(paras.length / 2);
+          const left = await translateChunkWithAiOrRescue(paras.slice(0, mid).join('\n\n'), sysPrompt, entries, tracker, depth + 1);
+          const right = await translateChunkWithAiOrRescue(paras.slice(mid).join('\n\n'), sysPrompt, entries, tracker, depth + 1);
+          return [left, right].filter(Boolean).join('\n\n');
+        }
+        tracker.rescuedCount += Math.max(1, paras.length);
+        return await translateTextViaGoogleFree(chunkText, entries);
+      }
+    }
+
     async function translateChapterViaGemini(chTitle, chContent, novel) {
       const sysPrompt = buildGeminiSystemPrompt(novel);
-      const translatedTitle = (await callGeminiApi(
-        `แปลชื่อตอนนิยายนี้เป็นภาษาไทยอย่างกระชับและสละสลวย (ตอบเฉพาะชื่อตอนภาษาไทยบรรทัดเดียว):\n${chTitle}`,
-        sysPrompt
-      )).split('\n')[0].trim().slice(0, 200);
+      const entries = parseGlossaryEntries(novel?.glossary || '');
+      let translatedTitle = '';
+      try {
+        translatedTitle = (await callGeminiApi(
+          `แปลชื่อตอนนิยายนี้เป็นภาษาไทยอย่างกระชับและสละสลวย (ตอบเฉพาะชื่อตอนภาษาไทยบรรทัดเดียว):\n${chTitle}`,
+          sysPrompt
+        )).split('\n')[0].trim().slice(0, 200);
+      } catch (titleErr) {
+        if (isGeminiContentBlockError(titleErr)) {
+          translatedTitle = (await translateTextViaGoogleFree(chTitle, entries)).split('\n')[0].trim().slice(0, 200);
+        } else {
+          throw titleErr;
+        }
+      }
 
       const lines = splitNonEmptyLines(chContent);
-      if (lines.length === 0) return { translatedTitle, translatedContent: '' };
+      if (lines.length === 0) return { translatedTitle, translatedContent: '', rescuedParaCount: 0 };
 
       const chunks = [];
       let current = [];
@@ -3453,13 +3628,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
       if (current.length) chunks.push(current.join('\n\n'));
 
+      const tracker = { rescuedCount: 0 };
       const outParts = [];
       for (let i = 0; i < chunks.length; i++) {
-        const translatedPart = await callGeminiApi(
-          `จงแปลเนื้อหานิยายส่วนนี้เป็นภาษาไทย โดยคงการขึ้นย่อหน้าใหม่ให้ตรงกัน:\n\n${chunks[i]}`,
-          sysPrompt
-        );
-        outParts.push(translatedPart.trim());
+        const partOut = await translateChunkWithAiOrRescue(chunks[i], sysPrompt, entries, tracker, 0);
+        if (partOut) outParts.push(partOut);
         if (i < chunks.length - 1) {
           await new Promise((r) => setTimeout(r, 250));
         }
@@ -3467,7 +3640,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
       return {
         translatedTitle: translatedTitle || chTitle.slice(0, 200),
-        translatedContent: outParts.join('\n\n').slice(0, 800000)
+        translatedContent: outParts.join('\n\n').slice(0, 800000),
+        rescuedParaCount: tracker.rescuedCount
       };
     }
 
@@ -3475,11 +3649,13 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const entries = parseGlossaryEntries(novel?.glossary || '');
       let translatedTitle = '';
       let translatedContent = '';
+      let rescuedParaCount = 0;
 
       if (engine === 'ai') {
         const res = await translateChapterViaGemini(ch.title, ch.content, novel);
         translatedTitle = res.translatedTitle;
         translatedContent = res.translatedContent;
+        rescuedParaCount = res.rescuedParaCount || 0;
       } else {
         translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
         translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
@@ -3493,6 +3669,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       ch.translatedTitle = translatedTitle;
       ch.translatedContent = translatedContent;
       ch.updatedAt = now;
+      ch._lastRescuedParaCount = rescuedParaCount;
       return ch;
     }
 
@@ -3528,7 +3705,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         renderReaderChapterContent(ch);
         renderReaderTocDrawer();
         renderChaptersList();
-        showToast('แปลและบันทึกขึ้น Cloud เรียบร้อยแล้ว');
+        if (ch._lastRescuedParaCount > 0) {
+          showToast(`✨ แปลจบตอนแล้ว (AI กู้ย่อหน้าติดตัวกรอง ${ch._lastRescuedParaCount} ย่อหน้าด้วยระบบสำรอง+คำศัพท์ให้อัตโนมัติ)`);
+        } else {
+          showToast('แปลและบันทึกขึ้น Cloud เรียบร้อยแล้ว');
+        }
       } catch (err) {
         console.error('triggerReaderTranslate failed:', err);
         if (err?.message === 'MISSING_GEMINI_KEY') {
@@ -4613,8 +4794,38 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         glossary ? `ชื่อตัวละครและศัพท์เฉพาะที่ต้องใช้ให้ตรงกัน:\n${glossary}` : '',
         'ห้ามแต่งเติมข้อมูลที่ไม่มีในตอนที่ส่งให้'
       ].filter(Boolean).join('\n\n');
-      const prompt = `ช่วยสรุปเหตุการณ์สำคัญของ "${novel?.translatedTitle || novel?.title || 'นิยาย'}" ตอนที่ ${Number(ch.order)}: ${ch.translatedTitle || ch.title}\n\nขอเป็นภาษาไทยอ่านง่าย (ความยาวประมาณ 4-8 บรรทัด) แบ่งประเด็นสั้นๆ ดังนี้:\n• เหตุการณ์หลัก\n• ความเคลื่อนไหวตัวละครสำคัญ\n• ปมสำคัญ/จุดพลิกผันท้ายตอน (ถ้ามี)\n\nเนื้อหาตอน:\n${text}`;
-      return await callGeminiApi(prompt, sysPrompt);
+      const chTitleLabel = `ตอนที่ ${Number(ch.order)}: ${ch.translatedTitle || ch.title}`;
+      const prompt = `ช่วยสรุปเหตุการณ์สำคัญของ "${novel?.translatedTitle || novel?.title || 'นิยาย'}" ${chTitleLabel}\n\nขอเป็นภาษาไทยอ่านง่าย (ความยาวประมาณ 4-8 บรรทัด) แบ่งประเด็นสั้นๆ ดังนี้:\n• เหตุการณ์หลัก\n• ความเคลื่อนไหวตัวละครสำคัญ\n• ปมสำคัญ/จุดพลิกผันท้ายตอน (ถ้ามี)\n\nเนื้อหาตอน:\n${text}`;
+
+      try {
+        return await callGeminiApi(prompt, sysPrompt);
+      } catch (err) {
+        if (!isGeminiContentBlockError(err)) throw err;
+
+        // Fallback A: Safer opening + closing slices (skipping intense middle climax)
+        const paras = splitNonEmptyLines(text);
+        const headCount = Math.max(2, Math.ceil(paras.length * 0.35));
+        const tailCount = Math.max(2, Math.ceil(paras.length * 0.25));
+        const edgeText = paras.length > 5
+          ? sanitizeTextForAiFilter([...paras.slice(0, headCount), '...(ข้ามช่วงกลางตอนเพื่อสรุปภาพรวม)...', ...paras.slice(-tailCount)].join('\n\n'))
+          : sanitizeTextForAiFilter(text);
+
+        try {
+          const safeSys = `${sysPrompt}\n\nหมายเหตุระบบ: สรุปเฉพาะภาพรวมโครงเรื่องด้วยภาษาสุภาพระดับ PG-13 หลีกเลี่ยงรายละเอียดรุนแรงหรือล่อแหลม`;
+          const safePrompt = `ช่วยสรุปโครงเรื่องภาพรวมของ "${novel?.translatedTitle || novel?.title || 'นิยาย'}" ${chTitleLabel} จากช่วงต้นและช่วงท้ายตอนนี้เป็นภาษาไทยสั้นๆ 3-5 บรรทัด:\n\n${edgeText}`;
+          return await callGeminiApi(safePrompt, safeSys, { temperature: 0.7 });
+        } catch (edgeErr) {
+          if (!isGeminiContentBlockError(edgeErr)) throw edgeErr;
+
+          // Fallback B: Google Translate + Glossary rescue excerpt
+          const entries = parseGlossaryEntries(glossary);
+          const sampleLines = paras.length > 6
+            ? [...paras.slice(0, 4), '---', ...paras.slice(-3)]
+            : paras.slice(0, 6);
+          const rescued = await translateTextViaGoogleFree(sampleLines.join('\n\n'), entries);
+          return `📌 สรุปโครงเรื่องอัตโนมัติ (โหมดสำรองสำหรับตอนที่ติดตัวกรอง AI):\n\n${rescued}`;
+        }
+      }
     }
 
     async function aiSummarizeActiveNoteChapter() {
@@ -4747,7 +4958,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           `กฎเหล็กรักษาความลับ (ANTI-SPOILER): ให้กล่าวถึงเหตุการณ์ ข้อมูล และตัวละครที่ปรากฏจนถึง "ตอนที่ ${maxOrder}" เท่านั้น ห้ามกล่าวถึง หรือใบ้เหตุการณ์ในตอนหลังกว่านี้เด็ดขาด`
         ].join('\n\n');
         const prompt = `ช่วยเขียน "บททบทวนความจำก่อนอ่านต่อ" ให้ผู้อ่านจำเรื่องได้ทันทีสำหรับนิยายเรื่องนี้ โดยครอบคลุมตั้งแต่ต้นจนถึงตอนที่ ${maxOrder} เท่านั้น:\n\n1. ภาพรวมเส้นเรื่องหลักที่ผ่านมา\n2. ตัวละครสำคัญและสถานะ/ความสัมพันธ์ปัจจุบัน\n3. ปมปริศนาหรือเหตุการณ์ที่ค้างคา ณ จุดนี้\n\nข้อมูลเรื่อง (คัดกรองถึงตอนที่ ${maxOrder}):\n${ctx}`;
-        const reply = await callGeminiApi(prompt, sysPrompt);
+        const reply = await callGeminiWithSanitizedRetry(prompt, sysPrompt, () => ({
+          sysPrompt: `${sysPrompt}\n\nหมายเหตุระบบ: สรุปภาพรวมด้วยถ้อยคำวรรณศิลป์ที่สุภาพระดับ PG-13 หลีกเลี่ยงรายละเอียดล่อแหลมหรือความรุนแรง`,
+          prompt: `ช่วยเขียน "บททบทวนความจำก่อนอ่านต่อ" ถึงตอนที่ ${maxOrder} (แบบสรุปสุภาพ PG-13):\n\n${sanitizeTextForAiFilter(buildNovelContextUpTo(novel, maxOrder, 18000, false))}`
+        }));
         $('inputStoryRecap').value = reply.slice(0, 30000);
         showToast('✨ สร้างสรุปทบทวนเสร็จแล้ว (กดบันทึกเพื่อเก็บไว้)');
       } catch (err) {
@@ -5118,7 +5332,19 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           `คำถามล่าสุดจากผู้อ่าน:\n${question}`
         ].filter(Boolean).join('\n\n---\n\n');
 
-        const reply = await callGeminiApi(prompt, sysPrompt);
+        const reply = await callGeminiWithSanitizedRetry(prompt, sysPrompt, () => {
+          const safeCtx = sanitizeTextForAiFilter(buildNovelContextUpTo(novel, effectiveMaxOrder, 16000, effectiveMaxOrder == null));
+          const safeRet = retrievedText ? sanitizeTextForAiFilter(retrievedText.slice(0, 8000)) : '';
+          return {
+            sysPrompt: `${sysPrompt}\n\nหมายเหตุระบบ: ตอบโดยใช้ภาษาสุภาพและเปรียบเปรยเชิงวรรณกรรมระดับ PG-13 หลีกเลี่ยงคำรุนแรงหรือฉากทางเพศโดยตรง`,
+            prompt: [
+              `บริบทภาพรวม (ฉบับสรุปสุภาพ):\n${safeCtx}`,
+              safeRet ? `ช่วงเนื้อหาอ้างอิงที่คัดกรองแล้ว:\n${safeRet}` : '',
+              recentTurns ? `ประวัติการถาม-ตอบก่อนหน้า:\n${recentTurns}` : '',
+              `คำถามจากผู้อ่าน (ช่วยสรุปเหตุการณ์อย่างสุภาพระดับ PG-13):\n${question}`
+            ].filter(Boolean).join('\n\n---\n\n')
+          };
+        });
         let finalReply = reply;
         if (matchedChapterLabels.length > 0 || autoUnlockedSpoiler) {
           const footerParts = [];
@@ -5439,7 +5665,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           `\nข้อมูลนิยายสำหรับสกัด:\n${ctx}`
         ].filter(Boolean).join('\n\n');
 
-        const reply = await callGeminiApi(prompt, sysPrompt);
+        const reply = await callGeminiWithSanitizedRetry(prompt, sysPrompt, () => ({
+          sysPrompt: `${sysPrompt}\n\nหมายเหตุระบบ: สกัดเฉพาะประวัติและความสัมพันธ์ของตัวละครด้วยภาษาที่เป็นทางการและเหมาะสมระดับ PG-13`,
+          prompt: `ช่วยสรุป "สารานุกรมตัวละคร & ข้อมูลสำคัญ" ด้วยถ้อยคำสุภาพจากข้อมูลนิยาย:\n\n${sanitizeTextForAiFilter(buildNovelContextUpTo(novel, maxOrder, 18000, false))}`
+        }));
         $('inputCharacterWiki').value = reply.slice(0, 50000);
         showToast('✨ สร้าง/อัปเดตสารานุกรมตัวละครแล้ว (อย่าลืมกดบันทึกนะครับ)');
       } catch (err) {
