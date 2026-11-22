@@ -1054,17 +1054,20 @@
           <div class="space-y-1">
             <label class="font-bold text-app-main">🧠 ระดับความคิดของโมเดล (Thinking Level)</label>
             <select id="selectThinkingLevel" class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main text-xs sm:text-sm focus:outline-none">
-              <option value="auto">อัตโนมัติ (ตามค่าเริ่มต้นของโมเดล)</option>
-              <option value="off">ปิดการคิด (0 tokens — เร็วสุด/ประหยัด)</option>
-              <option value="low">ต่ำ — Low (1,024 tokens)</option>
-              <option value="medium">กลาง — Medium (4,096 tokens)</option>
-              <option value="high">สูง — High (16,384 tokens — คิดลึก)</option>
-              <option value="custom">กำหนดเอง (ระบุ Thinking Tokens)</option>
+              <option value="auto">Auto (ตามค่าเริ่มต้นของ AI Studio)</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="xhigh">Extra High</option>
+              <option value="minimal">Minimal</option>
+              <option value="off">Off (ปิดการคิด)</option>
+              <option value="custom">พิมพ์ชื่อระดับเองตาม AI Studio...</option>
             </select>
+            <p id="aiStudioThinkingSyncHint" class="text-[11px] text-indigo-600 font-medium">🔄 ซิงก์ระดับตามนิยามของ Google AI Studio อัตโนมัติ (ไม่มีการล็อกตัวเลขตายตัว)</p>
           </div>
           <div id="customThinkingWrap" class="hidden space-y-1">
-            <label class="font-bold text-app-main">จำนวน Thinking Tokens (กำหนดเอง)</label>
-            <input id="inputCustomThinkingBudget" type="number" min="0" max="65536" step="256" value="4096"
+            <label class="font-bold text-app-main">ชื่อระดับความคิดใน AI Studio (หรือพิมพ์ตัวเลข)</label>
+            <input id="inputCustomThinkingLevel" type="text" maxlength="40" placeholder="เช่น Extra High, Ultra, Max"
               class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main text-xs sm:text-sm focus:outline-none" />
           </div>
         </div>
@@ -1731,8 +1734,14 @@
       } catch (e) {}
 
       const geminiModel = (String(raw.geminiModel || '').trim() || 'gemini-2.5-flash').slice(0, 200);
-      const validLevels = ['auto', 'off', 'low', 'medium', 'high', 'custom'];
-      const thinkingLevel = validLevels.includes(raw.thinkingLevel) ? raw.thinkingLevel : 'auto';
+      const rawThinking = String(raw.thinkingLevel || 'auto').trim().slice(0, 50);
+      const lowerThinking = rawThinking.toLowerCase();
+      let thinkingLevel = rawThinking || 'auto';
+      if (['auto', 'low', 'medium', 'high', 'xhigh', 'minimal', 'off'].includes(lowerThinking)) {
+        thinkingLevel = lowerThinking;
+      } else if (lowerThinking === 'extra high' || lowerThinking === 'extra_high' || lowerThinking === 'extra-high') {
+        thinkingLevel = 'xhigh';
+      }
       const thinkingBudget = Math.max(0, Math.min(1000000, Number.isFinite(Number(raw.thinkingBudget)) ? Math.round(Number(raw.thinkingBudget)) : 4096));
       const defaultStyle = (String(raw.defaultStyle || '').trim() || DEFAULT_TRANS_STYLE).slice(0, 2000);
 
@@ -1750,12 +1759,17 @@
     }
 
     function getThinkingLabel(level, budget) {
-      if (level === 'off') return 'ปิด (0)';
-      if (level === 'low') return 'ต่ำ (1K)';
-      if (level === 'medium') return 'กลาง (4K)';
-      if (level === 'high') return 'สูง (16K)';
-      if (level === 'custom') return `กำหนดเอง (${Number(budget || 0).toLocaleString()})`;
-      return 'อัตโนมัติ';
+      const raw = String(level || '').trim();
+      const lower = raw.toLowerCase();
+      if (!raw || lower === 'auto') return 'Auto';
+      if (lower === 'low') return 'Low';
+      if (lower === 'medium') return 'Medium';
+      if (lower === 'high') return 'High';
+      if (lower === 'xhigh' || lower === 'extra_high' || lower === 'extra high' || lower === 'extra-high') return 'Extra High';
+      if (lower === 'minimal') return 'Minimal';
+      if (lower === 'off') return 'Off';
+      if (lower === 'custom') return budget !== undefined ? String(budget) : 'Custom';
+      return raw;
     }
 
     function renderTranslatorStatusBadges() {
@@ -3558,14 +3572,62 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return outChunks.join('\n\n').trim();
     }
 
+    const PRESET_THINKING_LEVELS = new Set(['auto', 'low', 'medium', 'high', 'xhigh', 'minimal', 'off']);
+    const liveModelMetaCache = new Map();
+    const modelThinkingModeCache = new Map();
+
+    function resolveThinkingSpec(cfgOpts = {}) {
+      if (cfgOpts.thinkingBudget === 0) {
+        return { mode: 'budget', apiLevel: null, fallbackBudget: 0, highOutput: false };
+      }
+      if (cfgOpts.thinkingBudget !== undefined && cfgOpts.thinkingBudget !== null) {
+        const b = Math.max(0, Math.round(Number(cfgOpts.thinkingBudget) || 0));
+        return { mode: 'budget', apiLevel: null, fallbackBudget: b, highOutput: b >= 8192 };
+      }
+
+      const rawLvl = String(state.translator.thinkingLevel || 'auto').trim();
+      const lower = rawLvl.toLowerCase();
+      if (!rawLvl || lower === 'auto') {
+        return { mode: 'auto', apiLevel: null, fallbackBudget: null, highOutput: false };
+      }
+      if (lower === 'off') {
+        return { mode: 'off', apiLevel: null, fallbackBudget: 0, highOutput: false };
+      }
+      if (lower === 'minimal') {
+        return { mode: 'level', apiLevel: 'MINIMAL', fallbackBudget: 512, highOutput: false };
+      }
+      if (lower === 'low') {
+        return { mode: 'level', apiLevel: 'LOW', fallbackBudget: 1024, highOutput: false };
+      }
+      if (lower === 'medium') {
+        return { mode: 'level', apiLevel: 'MEDIUM', fallbackBudget: 4096, highOutput: false };
+      }
+      if (lower === 'high') {
+        return { mode: 'level', apiLevel: 'HIGH', fallbackBudget: 16384, highOutput: true };
+      }
+      if (lower === 'xhigh' || lower === 'extra_high' || lower === 'extra high' || lower === 'extra-high') {
+        return { mode: 'level', apiLevel: 'EXTRA_HIGH', fallbackBudget: 24576, highOutput: true };
+      }
+      if (lower === 'custom') {
+        const b = Math.max(0, parseInt(state.translator.thinkingBudget, 10) || 4096);
+        return { mode: 'budget', apiLevel: null, fallbackBudget: b, highOutput: b >= 8192 };
+      }
+      if (/^\d+$/.test(rawLvl)) {
+        const b = Math.max(0, Math.min(1000000, parseInt(rawLvl, 10) || 0));
+        return { mode: 'budget', apiLevel: null, fallbackBudget: b, highOutput: b >= 8192 };
+      }
+      const normalizedEnum = rawLvl.toUpperCase().replace(/[\s-]+/g, '_').replace(/[^A-Z0-9_]/g, '');
+      return {
+        mode: 'level',
+        apiLevel: normalizedEnum || 'HIGH',
+        fallbackBudget: 24576,
+        highOutput: true
+      };
+    }
+
     function resolveThinkingBudget() {
-      const lvl = state.translator.thinkingLevel || 'auto';
-      if (lvl === 'off') return 0;
-      if (lvl === 'low') return 1024;
-      if (lvl === 'medium') return 4096;
-      if (lvl === 'high') return 16384;
-      if (lvl === 'custom') return Math.max(0, parseInt(state.translator.thinkingBudget, 10) || 0);
-      return null;
+      const spec = resolveThinkingSpec();
+      return spec.fallbackBudget;
     }
 
     const GEMINI_SAFETY_SETTINGS_OFF = [
@@ -3615,17 +3677,43 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         model = 'gemini-2.5-flash';
       }
 
-      const defaultBudget = resolveThinkingBudget();
       const sendOnce = async (apiKey, pText, sysText, cfgOpts = {}) => {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const buildBody = ({ withThinking, safetyList }) => {
+        const spec = resolveThinkingSpec(cfgOpts);
+        const liveMeta = liveModelMetaCache.get(model);
+        const cachedMode = modelThinkingModeCache.get(model);
+
+        const thinkingCandidates = [];
+        if (spec.mode === 'auto' || (liveMeta && liveMeta.thinking === false) || cachedMode === 'none') {
+          thinkingCandidates.push(null);
+        } else if (spec.mode === 'off') {
+          thinkingCandidates.push({ thinkingBudget: 0 }, null);
+        } else if (spec.mode === 'budget') {
+          thinkingCandidates.push({ thinkingBudget: spec.fallbackBudget }, null);
+        } else if (cachedMode === 'budget') {
+          thinkingCandidates.push({ thinkingBudget: spec.fallbackBudget }, null);
+        } else {
+          thinkingCandidates.push({ thinkingLevel: spec.apiLevel });
+          thinkingCandidates.push({ thinkingBudget: spec.fallbackBudget });
+          if (spec.apiLevel === 'EXTRA_HIGH') {
+            thinkingCandidates.push({ thinkingLevel: 'HIGH' });
+          }
+          thinkingCandidates.push(null);
+        }
+
+        let maxOutTokens = 8192;
+        if (spec.highOutput) {
+          const liveLimit = Number(liveMeta?.outputTokenLimit || 0);
+          maxOutTokens = liveLimit > 8192 ? Math.min(65536, liveLimit) : 32768;
+        }
+
+        const buildBody = ({ thinkingCfg, safetyList, outTokens }) => {
           const genCfg = {
             temperature: cfgOpts.temperature ?? 0.45,
-            maxOutputTokens: 8192
+            maxOutputTokens: outTokens
           };
-          const budget = cfgOpts.thinkingBudget !== undefined ? cfgOpts.thinkingBudget : defaultBudget;
-          if (withThinking && budget !== null) {
-            genCfg.thinkingConfig = { thinkingBudget: budget };
+          if (thinkingCfg) {
+            genCfg.thinkingConfig = thinkingCfg;
           }
           const b = {
             contents: [{ role: 'user', parts: [{ text: pText }] }],
@@ -3637,27 +3725,55 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         };
 
         let safetyMode = GEMINI_SAFETY_SETTINGS_OFF;
-        let useThinking = true;
+        let tIdx = 0;
+        let sawLevelUnsupported = false;
         let res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildBody({ withThinking: useThinking, safetyList: safetyMode }))
+          body: JSON.stringify(buildBody({ thinkingCfg: thinkingCandidates[tIdx], safetyList: safetyMode, outTokens: maxOutTokens }))
         });
 
-        if (res.status === 400) {
+        for (let attempt400 = 0; attempt400 < 4 && res.status === 400; attempt400++) {
           const errPreview = await res.clone().json().catch(() => ({}));
           const msg400 = String(errPreview?.error?.message || '');
-          if (/safety|threshold|OFF/i.test(msg400)) {
+          let changed = false;
+
+          if (/safety|threshold|OFF/i.test(msg400) && safetyMode !== GEMINI_SAFETY_SETTINGS_BLOCK_NONE) {
             safetyMode = GEMINI_SAFETY_SETTINGS_BLOCK_NONE;
+            changed = true;
           }
-          if (/thinking/i.test(msg400) || (defaultBudget !== null && !/safety|threshold|OFF/i.test(msg400))) {
-            useThinking = false;
+          if (/maxOutputTokens|max_output_tokens|output.?token/i.test(msg400) && maxOutTokens > 8192) {
+            maxOutTokens = 8192;
+            changed = true;
           }
+
+          const currentCfg = thinkingCandidates[tIdx];
+          if (currentCfg && (/thinking/i.test(msg400) || !changed)) {
+            if (currentCfg.thinkingLevel && /thinkingLevel|thinking_level|Unknown name|Cannot find field/i.test(msg400) && spec.apiLevel !== 'EXTRA_HIGH') {
+              sawLevelUnsupported = true;
+            }
+            if (tIdx + 1 < thinkingCandidates.length) {
+              tIdx += 1;
+              changed = true;
+            }
+          }
+
+          if (!changed) break;
+
           res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildBody({ withThinking: useThinking, safetyList: safetyMode }))
+            body: JSON.stringify(buildBody({ thinkingCfg: thinkingCandidates[tIdx], safetyList: safetyMode, outTokens: maxOutTokens }))
           });
+        }
+
+        if (res.ok && spec.mode === 'level' && tIdx > 0) {
+          const winningCfg = thinkingCandidates[tIdx];
+          if (winningCfg && winningCfg.thinkingBudget !== undefined && sawLevelUnsupported) {
+            modelThinkingModeCache.set(model, 'budget');
+          } else if (winningCfg === null) {
+            modelThinkingModeCache.set(model, 'none');
+          }
         }
         return res;
       };
@@ -4054,6 +4170,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         pickBtn.addEventListener('click', () => {
           $('inputGeminiModel').value = m;
           renderSavedModelsChips();
+          updateAiStudioThinkingHint(m);
+          syncModelThinkingMetadata(m);
         });
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -4073,6 +4191,57 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       $('customThinkingWrap').classList.toggle('hidden', $('selectThinkingLevel').value !== 'custom');
     }
 
+    function updateAiStudioThinkingHint(modelName) {
+      const el = $('aiStudioThinkingSyncHint');
+      if (!el) return;
+      const cleanModel = String(modelName || $('inputGeminiModel')?.value || state.translator.geminiModel || 'gemini-2.5-flash')
+        .trim()
+        .replace(/^models\//, '');
+      const meta = liveModelMetaCache.get(cleanModel);
+      if (meta) {
+        if (meta.thinking === false) {
+          el.textContent = `ℹ️ โมเดล ${cleanModel} จาก AI Studio ไม่ใช้โหมด Thinking (ระบบจะข้ามให้อัตโนมัติ)`;
+        } else {
+          const parts = [cleanModel];
+          if (meta.thinking === true) parts.push('รองรับ Thinking');
+          if (meta.outputTokenLimit) parts.push(`Output สูงสุด ${Number(meta.outputTokenLimit).toLocaleString()} tokens`);
+          el.textContent = `🔄 ซิงก์ข้อมูลจาก AI Studio แล้ว (${parts.join(' • ')})`;
+        }
+      } else {
+        el.textContent = '🔄 ซิงก์ระดับตามนิยามของ Google AI Studio อัตโนมัติ (ไม่มีการล็อกตัวเลขตายตัว)';
+      }
+    }
+
+    async function syncModelThinkingMetadata(modelName) {
+      const cleanModel = String(modelName || '').trim().replace(/^models\//, '');
+      if (!cleanModel || liveModelMetaCache.has(cleanModel)) {
+        updateAiStudioThinkingHint(cleanModel);
+        return;
+      }
+      const draftActive = state.draftSavedKeys.find((k) => k.id === state.draftActiveKeyId);
+      const apiKey = $('inputGeminiApiKey')?.value.trim() || draftActive?.key || state.translator.geminiApiKey;
+      if (!apiKey) {
+        updateAiStudioThinkingHint(cleanModel);
+        return;
+      }
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanModel)}?key=${encodeURIComponent(apiKey)}`);
+        if (!res.ok) return;
+        const m = await res.json().catch(() => null);
+        if (m && m.name) {
+          liveModelMetaCache.set(cleanModel, {
+            thinking: m.thinking,
+            outputTokenLimit: m.outputTokenLimit,
+            inputTokenLimit: m.inputTokenLimit,
+            displayName: m.displayName || cleanModel
+          });
+          if ($('inputGeminiModel')?.value.trim().replace(/^models\//, '') === cleanModel) {
+            updateAiStudioThinkingHint(cleanModel);
+          }
+        }
+      } catch (e) {}
+    }
+
     function openTransSettingsModal() {
       state.draftSavedKeys = state.translator.savedKeys.map((k) => ({ ...k }));
       state.draftActiveKeyId = state.translator.activeKeyId || state.draftSavedKeys[0]?.id || '';
@@ -4080,13 +4249,25 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       resetKeyEditForm();
       renderSavedKeysUI();
 
-      $('inputGeminiModel').value = state.translator.geminiModel || 'gemini-2.5-flash';
+      const activeModel = state.translator.geminiModel || 'gemini-2.5-flash';
+      $('inputGeminiModel').value = activeModel;
       renderSavedModelsChips();
       $('fetchedModelsWrap').classList.add('hidden');
 
-      $('selectThinkingLevel').value = state.translator.thinkingLevel || 'auto';
-      $('inputCustomThinkingBudget').value = String(state.translator.thinkingBudget ?? 4096);
+      const curLvl = String(state.translator.thinkingLevel || 'auto').trim() || 'auto';
+      const curLower = curLvl.toLowerCase();
+      if (PRESET_THINKING_LEVELS.has(curLower)) {
+        $('selectThinkingLevel').value = curLower;
+        $('inputCustomThinkingLevel').value = '';
+      } else {
+        $('selectThinkingLevel').value = 'custom';
+        $('inputCustomThinkingLevel').value = curLower === 'custom'
+          ? String(state.translator.thinkingBudget ?? '')
+          : curLvl;
+      }
       updateThinkingBudgetVisibility();
+      updateAiStudioThinkingHint(activeModel);
+      syncModelThinkingMetadata(activeModel);
 
       $('inputDefaultTransStyle').value = state.translator.defaultStyle || DEFAULT_TRANS_STYLE;
       $('transSettingsModalBackdrop').classList.remove('hidden');
@@ -4106,7 +4287,19 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-        const models = (Array.isArray(data.models) ? data.models : [])
+        const rawModels = Array.isArray(data.models) ? data.models : [];
+        rawModels.forEach((m) => {
+          const id = String(m.name || '').replace(/^models\//, '');
+          if (id) {
+            liveModelMetaCache.set(id, {
+              thinking: m.thinking,
+              outputTokenLimit: m.outputTokenLimit,
+              inputTokenLimit: m.inputTokenLimit,
+              displayName: m.displayName || id
+            });
+          }
+        });
+        const models = rawModels
           .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
           .map((m) => String(m.name || '').replace(/^models\//, ''))
           .filter(Boolean);
@@ -4118,7 +4311,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         sel.innerHTML = '<option value="">-- คลิกเลือกโมเดลจากรายการสด (' + models.length + ' รุ่น) --</option>' +
           models.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
         $('fetchedModelsWrap').classList.remove('hidden');
-        showToast(`พบ ${models.length} โมเดลที่ใช้งานได้`);
+        updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
+        showToast(`พบ ${models.length} โมเดลและซิงก์ข้อมูลจาก AI Studio แล้ว`);
       } catch (err) {
         showToast('ดึงรายชื่อโมเดลไม่สำเร็จ: ' + (err?.message || 'ผิดพลาด'));
       } finally {
@@ -4795,7 +4989,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
     $('btnAddOrUpdateKey').addEventListener('click', addOrUpdateDraftKey);
     $('btnCancelKeyEdit').addEventListener('click', resetKeyEditForm);
-    $('inputGeminiModel').addEventListener('input', renderSavedModelsChips);
+    $('inputGeminiModel').addEventListener('input', () => {
+      renderSavedModelsChips();
+      updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
+    });
     $('btnRememberModel').addEventListener('click', () => {
       const m = $('inputGeminiModel').value.trim().slice(0, 200);
       if (!m) {
@@ -4813,6 +5010,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       if (e.target.value) {
         $('inputGeminiModel').value = e.target.value;
         renderSavedModelsChips();
+        updateAiStudioThinkingHint(e.target.value);
+        syncModelThinkingMetadata(e.target.value);
       }
     });
     $('selectThinkingLevel').addEventListener('change', updateThinkingBudgetVisibility);
@@ -4825,6 +5024,20 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           addOrUpdateDraftKey();
         }
         const activeObj = state.draftSavedKeys.find((k) => k.id === state.draftActiveKeyId) || state.draftSavedKeys[0] || null;
+        const selLvl = $('selectThinkingLevel').value;
+        let finalThinkingLevel = selLvl;
+        let finalThinkingBudget = state.translator.thinkingBudget ?? 4096;
+        if (selLvl === 'custom') {
+          const customRaw = $('inputCustomThinkingLevel').value.trim().slice(0, 50);
+          if (!customRaw) {
+            finalThinkingLevel = 'auto';
+          } else if (/^\d+$/.test(customRaw)) {
+            finalThinkingLevel = customRaw;
+            finalThinkingBudget = Math.max(0, Math.min(1000000, parseInt(customRaw, 10) || 4096));
+          } else {
+            finalThinkingLevel = customRaw;
+          }
+        }
         await saveTranslatorConfig({
           savedKeys: state.draftSavedKeys,
           activeKeyId: activeObj ? activeObj.id : '',
@@ -4832,8 +5045,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           geminiApiKey: activeObj ? activeObj.key : '',
           geminiModel: $('inputGeminiModel').value.trim() || 'gemini-2.5-flash',
           savedModels: state.draftSavedModels,
-          thinkingLevel: $('selectThinkingLevel').value,
-          thinkingBudget: parseInt($('inputCustomThinkingBudget').value, 10) || 4096,
+          thinkingLevel: finalThinkingLevel,
+          thinkingBudget: finalThinkingBudget,
           defaultStyle: $('inputDefaultTransStyle').value
         });
         $('transSettingsModalBackdrop').classList.add('hidden');
