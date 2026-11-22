@@ -549,38 +549,50 @@
 
       <!-- Sticky Thai Audio Reader / TTS Player Bar -->
       <div id="ttsPlayerBar" class="hidden sticky top-14 z-20 bg-app-surface/95 backdrop-blur border-b border-app px-3 sm:px-5 py-2.5 shadow-sm">
-        <div class="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div class="flex items-center gap-1.5">
-            <button id="btnTtsPrevPara" type="button" title="ย่อหน้าก่อนหน้า"
-              class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
-              ⏮
-            </button>
-            <button id="btnTtsPlayPause" type="button"
-              class="px-3.5 py-1.5 rounded-xl bg-app-accent text-white font-semibold shadow-sm hover:opacity-95 transition">
-              ▶️ อ่านเสียง
-            </button>
-            <button id="btnTtsNextPara" type="button" title="ย่อหน้าถัดไป"
-              class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
-              ⏭
-            </button>
-            <button id="btnTtsStop" type="button" title="หยุดและปิดแถบฟังเสียง"
-              class="px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 font-semibold hover:bg-rose-500/20 transition">
-              ⏹ หยุด
-            </button>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
+        <div class="max-w-3xl mx-auto flex flex-col gap-2 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <button id="btnTtsPrevPara" type="button" title="ย่อหน้าก่อนหน้า"
+                class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
+                ⏮
+              </button>
+              <button id="btnTtsPlayPause" type="button"
+                class="px-3.5 py-1.5 rounded-xl bg-app-accent text-white font-semibold shadow-sm hover:opacity-95 transition">
+                ▶️ อ่านเสียง
+              </button>
+              <button id="btnTtsNextPara" type="button" title="ย่อหน้าถัดไป"
+                class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
+                ⏭
+              </button>
+              <button id="btnTtsStop" type="button" title="หยุดและปิดแถบฟังเสียง"
+                class="px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 font-semibold hover:bg-rose-500/20 transition">
+                ⏹ หยุด
+              </button>
+            </div>
             <span id="ttsStatusLabel" class="text-[11px] font-medium text-app-sub">พร้อมอ่านออกเสียง</span>
-            <select id="selectTtsRate" title="ความเร็วเสียงอ่าน"
-              class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main focus:outline-none">
-              <option value="0.75">0.75x</option>
-              <option value="0.9">0.9x</option>
-              <option value="1" selected>1.0x</option>
-              <option value="1.15">1.15x</option>
-              <option value="1.3">1.3x</option>
-              <option value="1.5">1.5x</option>
-              <option value="1.8">1.8x</option>
-            </select>
-            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-app-main">
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+              <select id="selectTtsEngine" title="เลือกระบบสร้างเสียงอ่าน"
+                class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main focus:outline-none">
+                <option value="gemini">🤖 เสียง AI นักพากย์ (Gemini)</option>
+                <option value="browser">💻 เสียงไทยในเบราว์เซอร์ (ฟรี)</option>
+              </select>
+              <select id="selectTtsVoice" title="เลือกเสียงนักพากย์ / เสียงอ่าน"
+                class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-medium text-app-main focus:outline-none max-w-[230px] truncate">
+              </select>
+              <select id="selectTtsRate" title="ความเร็วเสียงอ่าน"
+                class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main focus:outline-none">
+                <option value="0.75">0.75x</option>
+                <option value="0.85">0.85x</option>
+                <option value="0.95">0.95x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.1">1.1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+              </select>
+            </div>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-app-main shrink-0">
               <input id="chkTtsAutoNext" type="checkbox" checked class="rounded text-rose-500" />
               <span>ต่อตอนถัดไปอัตโนมัติ</span>
             </label>
@@ -1455,6 +1467,9 @@
       ttsPlaying: false,
       ttsPaused: false,
       ttsParaIndex: 0,
+      ttsEngine: 'gemini',
+      ttsGeminiVoice: 'Kore',
+      ttsBrowserVoiceURI: '',
       ttsRate: 1,
       ttsSessionId: 0
     };
@@ -5220,7 +5235,227 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       });
     }
 
-    function setTtsStatusText() {
+    // ---------------------------------------------------------------------
+    // FEATURE 6: THAI AUDIO READER / DUAL-ENGINE TTS (GEMINI AI + BROWSER)
+    // ---------------------------------------------------------------------
+    const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+    const GEMINI_TTS_VOICES = [
+      { id: 'Kore', label: '👩 Kore — เสียงหญิงนุ่มละมุน (แนะนำ)' },
+      { id: 'Aoede', label: '👩 Aoede — เสียงหญิงสดใส ชัดเจน' },
+      { id: 'Leda', label: '👩 Leda — เสียงหญิงอ่อนโยน' },
+      { id: 'Zephyr', label: '👩 Zephyr — เสียงหญิงโปร่งสบาย' },
+      { id: 'Charon', label: '👨 Charon — เสียงชายทุ้มนุ่ม' },
+      { id: 'Puck', label: '👨 Puck — เสียงชายร่าเริงเป็นธรรมชาติ' },
+      { id: 'Fenrir', label: '👨 Fenrir — เสียงชายหนักแน่น จริงจัง' },
+      { id: 'Orus', label: '👨 Orus — เสียงชายสุภาพ สุขุม' }
+    ];
+
+    const ttsAudioCache = new Map();
+    const ttsInflightMap = new Map();
+    let activeTtsAudio = null;
+    let ttsPauseTimer = null;
+    let ttsEngineUserChosen = false;
+
+    function isThaiVoiceObj(v) {
+      const lang = String(v?.lang || '').toLowerCase();
+      const name = String(v?.name || '');
+      return lang.startsWith('th') || /thai|ไทย|premwadee|niwat|pattara|kanya|narisa|achara/i.test(name);
+    }
+
+    function getBestBrowserVoiceForScript(voices, targetLang) {
+      const matches = (voices || []).filter((v) => {
+        if (targetLang === 'th') return isThaiVoiceObj(v);
+        return String(v.lang || '').toLowerCase().startsWith(targetLang);
+      });
+      return matches.find((v) => /natural|online|google|microsoft|premwadee|niwat/i.test(v.name)) || matches[0] || null;
+    }
+
+    function populateTtsVoiceOptions() {
+      const engineEl = $('selectTtsEngine');
+      const voiceEl = $('selectTtsVoice');
+      if (!voiceEl) return;
+
+      if (engineEl) {
+        engineEl.value = state.ttsEngine === 'browser' ? 'browser' : 'gemini';
+      }
+
+      if (state.ttsEngine === 'gemini') {
+        voiceEl.innerHTML = GEMINI_TTS_VOICES
+          .map((v) => `<option value="${escapeHtml(v.id)}">${escapeHtml(v.label)}</option>`)
+          .join('');
+        const valid = GEMINI_TTS_VOICES.some((v) => v.id === state.ttsGeminiVoice);
+        if (!valid) state.ttsGeminiVoice = 'Kore';
+        voiceEl.value = state.ttsGeminiVoice;
+        return;
+      }
+
+      const voices = ('speechSynthesis' in window) ? (window.speechSynthesis.getVoices() || []) : [];
+      const thaiVoices = voices.filter(isThaiVoiceObj);
+      const otherVoices = voices.filter((v) => !isThaiVoiceObj(v));
+      const opts = [];
+
+      if (thaiVoices.length === 0) {
+        opts.push('<option value="">⚠️ ไม่มีเสียงภาษาไทยในเบราว์เซอร์ (แนะนำ Gemini AI)</option>');
+      } else {
+        thaiVoices.forEach((v) => {
+          opts.push(`<option value="${escapeHtml(v.voiceURI)}">🇹🇭 ${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`);
+        });
+      }
+      otherVoices.slice(0, 20).forEach((v) => {
+        opts.push(`<option value="${escapeHtml(v.voiceURI)}">🌐 ${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`);
+      });
+
+      voiceEl.innerHTML = opts.join('');
+      if (state.ttsBrowserVoiceURI && voices.some((v) => v.voiceURI === state.ttsBrowserVoiceURI)) {
+        voiceEl.value = state.ttsBrowserVoiceURI;
+      } else {
+        const bestTh = getBestBrowserVoiceForScript(voices, 'th');
+        if (bestTh) {
+          state.ttsBrowserVoiceURI = bestTh.voiceURI;
+          voiceEl.value = bestTh.voiceURI;
+        } else {
+          state.ttsBrowserVoiceURI = '';
+          voiceEl.value = '';
+        }
+      }
+    }
+
+    function syncDefaultTtsEngineAndVoices() {
+      if (!ttsEngineUserChosen) {
+        const hasKey = Boolean(String(state.translator.geminiApiKey || '').trim());
+        state.ttsEngine = hasKey ? 'gemini' : 'browser';
+      }
+      populateTtsVoiceOptions();
+    }
+
+    function pcmBase64ToWavUrl(base64Data, mimeType = '') {
+      const binStr = atob(base64Data);
+      const len = binStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binStr.charCodeAt(i);
+      }
+
+      const lowerMime = String(mimeType || '').toLowerCase();
+      const isRiff = len >= 4 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+      if (isRiff || /audio\/(wav|x-wav|mpeg|mp3|ogg|webm)/.test(lowerMime)) {
+        return URL.createObjectURL(new Blob([bytes], { type: mimeType || 'audio/wav' }));
+      }
+
+      const rateMatch = lowerMime.match(/rate=(\d+)/);
+      const sampleRate = rateMatch ? Math.max(8000, parseInt(rateMatch[1], 10)) : 24000;
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+      const blockAlign = numChannels * (bitsPerSample / 8);
+
+      const header = new ArrayBuffer(44);
+      const view = new DataView(header);
+      const writeAscii = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+      writeAscii(0, 'RIFF');
+      view.setUint32(4, 36 + bytes.byteLength, true);
+      writeAscii(8, 'WAVE');
+      writeAscii(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeAscii(36, 'data');
+      view.setUint32(40, bytes.byteLength, true);
+
+      return URL.createObjectURL(new Blob([header, bytes], { type: 'audio/wav' }));
+    }
+
+    async function fetchGeminiTtsAudioUrl(text, voiceName = 'Kore') {
+      const apiKey = String(state.translator.geminiApiKey || '').trim();
+      if (!apiKey) throw new Error('MISSING_GEMINI_KEY');
+
+      const cacheKey = `${voiceName}::${text}`;
+      if (ttsAudioCache.has(cacheKey)) {
+        const hitUrl = ttsAudioCache.get(cacheKey);
+        ttsAudioCache.delete(cacheKey);
+        ttsAudioCache.set(cacheKey, hitUrl);
+        return hitUrl;
+      }
+
+      if (ttsInflightMap.has(cacheKey)) {
+        return ttsInflightMap.get(cacheKey);
+      }
+
+      const taskPromise = (async () => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const body = {
+          contents: [{
+            parts: [{
+              text: `อ่านออกเสียงย่อหน้านิยายต่อไปนี้ด้วยน้ำเสียงนักเล่านิยายภาษาไทยที่เป็นธรรมชาติ ชัดเจน จังหวะน่าฟัง ไม่เร่งรีบ:\n\n${text}`
+            }]
+          }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName }
+              }
+            }
+          }
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error?.message || `Gemini TTS HTTP ${res.status}`);
+        }
+        const parts = Array.isArray(data?.candidates?.[0]?.content?.parts) ? data.candidates[0].content.parts : [];
+        const inlineData = parts.find((p) => p?.inlineData?.data)?.inlineData;
+        if (!inlineData?.data) {
+          throw new Error('Gemini TTS ไม่ได้ส่งข้อมูลเสียงกลับมา');
+        }
+
+        const audioUrl = pcmBase64ToWavUrl(inlineData.data, inlineData.mimeType || '');
+        ttsAudioCache.set(cacheKey, audioUrl);
+        if (ttsAudioCache.size > 25) {
+          const oldestKey = ttsAudioCache.keys().next().value;
+          const oldestUrl = ttsAudioCache.get(oldestKey);
+          ttsAudioCache.delete(oldestKey);
+          if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+        }
+        return audioUrl;
+      })();
+
+      ttsInflightMap.set(cacheKey, taskPromise);
+      try {
+        return await taskPromise;
+      } finally {
+        ttsInflightMap.delete(cacheKey);
+      }
+    }
+
+    function stopAllTtsAudio() {
+      if (ttsPauseTimer) {
+        clearTimeout(ttsPauseTimer);
+        ttsPauseTimer = null;
+      }
+      if (activeTtsAudio) {
+        activeTtsAudio.onended = null;
+        activeTtsAudio.onerror = null;
+        activeTtsAudio.pause();
+        activeTtsAudio = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function setTtsStatusText(customMessage = null) {
       const paras = getTtsParagraphs();
       const total = paras.length;
       const playBtn = $('btnTtsPlayPause');
@@ -5233,12 +5468,17 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           : (state.ttsPaused ? '▶️ อ่านต่อ' : '▶️ อ่านเสียง');
       }
       if (statusEl) {
-        if (total === 0) {
+        if (customMessage) {
+          statusEl.textContent = customMessage;
+        } else if (total === 0) {
           statusEl.textContent = 'ไม่มีข้อความให้อ่าน';
         } else if (state.ttsPlaying) {
-          statusEl.textContent = `กำลังอ่านย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
+          const idxLabel = `${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
+          statusEl.textContent = state.ttsEngine === 'gemini'
+            ? `🎙️ กำลังพากย์ย่อหน้า ${idxLabel} (${state.ttsGeminiVoice})`
+            : `💻 กำลังอ่านย่อหน้า ${idxLabel}`;
         } else if (state.ttsPaused) {
-          statusEl.textContent = `พักอยู่ที่ย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
+          statusEl.textContent = `⏸ พักอยู่ที่ย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
         } else {
           statusEl.textContent = `พร้อมอ่าน (${total} ย่อหน้า)`;
         }
@@ -5253,31 +5493,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     function openTtsBarStatePreserve() {
       state.ttsOpen = true;
       $('ttsPlayerBar').classList.remove('hidden');
+      syncDefaultTtsEngineAndVoices();
       setTtsStatusText();
     }
 
-    function pickBestTtsVoice(text) {
-      if (!('speechSynthesis' in window)) return { voice: null, lang: 'th-TH' };
-      const voices = window.speechSynthesis.getVoices() || [];
-      let targetLang = 'th';
-      if (/[\u0e00-\u0e7f]/.test(text)) {
-        targetLang = 'th';
-      } else if (/[\u4e00-\u9fff]/.test(text)) {
-        targetLang = 'zh';
-      } else if (/[a-zA-Z]{4,}/.test(text)) {
-        targetLang = 'en';
-      }
-      const matches = voices.filter((v) => String(v.lang || '').toLowerCase().startsWith(targetLang));
-      const preferred = matches.find((v) => /google|microsoft|premwadee|niwat|natural/i.test(v.name)) || matches[0] || null;
-      const fallbackLang = targetLang === 'th' ? 'th-TH' : (targetLang === 'zh' ? 'zh-CN' : 'en-US');
-      return { voice: preferred, lang: preferred?.lang || fallbackLang };
-    }
-
-    function ttsSpeakIndex(idx) {
-      if (!('speechSynthesis' in window)) {
-        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียงครับ');
-        return;
-      }
+    async function ttsSpeakIndex(idx) {
       const paras = getTtsParagraphs();
       if (paras.length === 0) {
         showToast('ไม่พบย่อหน้าสำหรับอ่านออกเสียงครับ');
@@ -5291,7 +5511,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           const chIdx = state.chapters.findIndex((c) => c.id === state.activeChapterId);
           if (chIdx !== -1 && chIdx + 1 < state.chapters.length) {
             state.ttsSessionId += 1;
-            window.speechSynthesis.cancel();
+            stopAllTtsAudio();
             openReaderChapter(state.chapters[chIdx + 1].id, false, true);
             return;
           }
@@ -5312,59 +5532,172 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       state.ttsOpen = true;
       $('ttsPlayerBar').classList.remove('hidden');
       state.ttsParaIndex = safeIdx;
-      state.ttsPlaying = true;
-      state.ttsPaused = false;
       state.ttsSessionId += 1;
       const sid = state.ttsSessionId;
+      stopAllTtsAudio();
 
       clearTtsHighlight();
       pEl.classList.add('tts-active-para');
       pEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      const { voice, lang } = pickBestTtsVoice(text);
-      if (voice) utter.voice = voice;
-      utter.lang = lang;
-      utter.rate = Number(state.ttsRate) || 1;
+      if (state.ttsEngine === 'browser') {
+        if (!('speechSynthesis' in window)) {
+          showToast('เบราว์เซอร์นี้ไม่รองรับเสียงอ่าน Web Speech API');
+          stopTts(false);
+          return;
+        }
+        const voices = window.speechSynthesis.getVoices() || [];
+        const isThaiText = /[\u0e00-\u0e7f]/.test(text);
+        const isZhText = !isThaiText && /[\u4e00-\u9fff]/.test(text);
+        const targetLang = isThaiText ? 'th' : (isZhText ? 'zh' : 'en');
 
-      utter.onend = () => {
-        if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
-        ttsSpeakIndex(safeIdx + 1);
-      };
-      utter.onerror = (ev) => {
-        if (sid !== state.ttsSessionId) return;
-        if (ev?.error === 'interrupted' || ev?.error === 'canceled') return;
-        console.warn('TTS utterance error:', ev);
+        let chosenVoice = voices.find((v) => v.voiceURI === state.ttsBrowserVoiceURI) || null;
+        if (isThaiText && chosenVoice && !isThaiVoiceObj(chosenVoice)) {
+          chosenVoice = null;
+        }
+        if (!chosenVoice) {
+          chosenVoice = getBestBrowserVoiceForScript(voices, targetLang);
+        }
+
+        if (isThaiText && (!chosenVoice || !isThaiVoiceObj(chosenVoice))) {
+          if (String(state.translator.geminiApiKey || '').trim()) {
+            state.ttsEngine = 'gemini';
+            ttsEngineUserChosen = true;
+            populateTtsVoiceOptions();
+            showToast('เบราว์เซอร์นี้ไม่มีชุดเสียงภาษาไทย ระบบจึงสลับมาใช้เสียง AI นักพากย์ (Gemini) ให้แทนครับ');
+          } else {
+            state.ttsPlaying = false;
+            state.ttsPaused = false;
+            clearTtsHighlight();
+            setTtsStatusText('⚠️ ไม่พบเสียงภาษาไทยในเครื่อง — ใส่ Gemini Key เพื่อใช้เสียง AI');
+            showToast('เบราว์เซอร์นี้ไม่มีเสียงภาษาไทย (ทำให้ติดสำเนียงฝรั่ง) แนะนำใส่ Gemini Key เพื่อใช้เสียง AI นักพากย์ หรือเปิดด้วย Microsoft Edge ครับ');
+            return;
+          }
+        } else {
+          state.ttsPlaying = true;
+          state.ttsPaused = false;
+          const utter = new SpeechSynthesisUtterance(text);
+          if (chosenVoice) {
+            utter.voice = chosenVoice;
+            utter.lang = chosenVoice.lang;
+          } else {
+            utter.lang = targetLang === 'zh' ? 'zh-CN' : 'en-US';
+          }
+          utter.rate = Number(state.ttsRate) || 1;
+          utter.onend = () => {
+            if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+            ttsPauseTimer = setTimeout(() => {
+              if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+              ttsSpeakIndex(safeIdx + 1);
+            }, 350);
+          };
+          utter.onerror = (ev) => {
+            if (sid !== state.ttsSessionId) return;
+            if (ev?.error === 'interrupted' || ev?.error === 'canceled') return;
+            console.warn('Browser TTS error:', ev);
+            state.ttsPlaying = false;
+            setTtsStatusText();
+          };
+          setTtsStatusText();
+          window.speechSynthesis.speak(utter);
+          return;
+        }
+      }
+
+      // Engine: Gemini AI TTS (gemini-2.5-flash-preview-tts)
+      if (!requireGeminiKeyOrOpenSettings('เสียง AI นักพากย์ (Gemini TTS)')) {
         state.ttsPlaying = false;
-        setTtsStatusText();
-      };
+        state.ttsPaused = false;
+        setTtsStatusText('กรุณาใส่ Gemini API Key ก่อนใช้งาน');
+        return;
+      }
 
-      setTtsStatusText();
-      window.speechSynthesis.speak(utter);
+      state.ttsPlaying = true;
+      state.ttsPaused = false;
+      const voiceName = state.ttsGeminiVoice || 'Kore';
+      setTtsStatusText(`✨ AI กำลังสร้างเสียงพากย์ย่อหน้า ${safeIdx + 1} / ${paras.length}...`);
+
+      try {
+        const audioUrl = await fetchGeminiTtsAudioUrl(text, voiceName);
+        if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+
+        const audio = new Audio(audioUrl);
+        audio.playbackRate = Number(state.ttsRate) || 1;
+        activeTtsAudio = audio;
+
+        audio.onended = () => {
+          if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+          activeTtsAudio = null;
+          ttsPauseTimer = setTimeout(() => {
+            if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+            ttsSpeakIndex(safeIdx + 1);
+          }, 300);
+        };
+        audio.onerror = (ev) => {
+          if (sid !== state.ttsSessionId) return;
+          console.warn('Gemini audio playback error:', ev);
+          activeTtsAudio = null;
+          state.ttsPlaying = false;
+          state.ttsPaused = true;
+          setTtsStatusText('❌ เล่นไฟล์เสียงไม่สำเร็จ ลองกดอ่านต่ออีกครั้ง');
+        };
+
+        await audio.play();
+        if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+        setTtsStatusText();
+
+        if (safeIdx + 1 < paras.length) {
+          const nextText = String(paras[safeIdx + 1].textContent || '').trim();
+          if (nextText) {
+            fetchGeminiTtsAudioUrl(nextText, voiceName).catch(() => {});
+          }
+        }
+      } catch (err) {
+        if (sid !== state.ttsSessionId) return;
+        console.error('Gemini TTS error:', err);
+        activeTtsAudio = null;
+        state.ttsPlaying = false;
+        state.ttsPaused = true;
+        setTtsStatusText('❌ สร้างเสียง AI ไม่สำเร็จ');
+        showToast('Gemini TTS ขัดข้อง: ' + (err?.message || 'ไม่สามารถสร้างเสียงได้'));
+      }
     }
 
     function toggleTtsPlayPause() {
-      if (!('speechSynthesis' in window)) {
-        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Web Speech API)');
+      if (state.ttsPlaying) {
+        if (state.ttsEngine === 'gemini' && activeTtsAudio && !activeTtsAudio.paused && !activeTtsAudio.ended) {
+          activeTtsAudio.pause();
+          state.ttsPlaying = false;
+          state.ttsPaused = true;
+          setTtsStatusText();
+        } else {
+          state.ttsSessionId += 1;
+          stopAllTtsAudio();
+          state.ttsPlaying = false;
+          state.ttsPaused = true;
+          setTtsStatusText();
+        }
         return;
       }
-      if (state.ttsPlaying) {
-        state.ttsSessionId += 1;
-        window.speechSynthesis.cancel();
-        state.ttsPlaying = false;
-        state.ttsPaused = true;
-        setTtsStatusText();
-      } else {
-        ttsSpeakIndex(state.ttsParaIndex || 0);
+
+      if (state.ttsPaused && state.ttsEngine === 'gemini' && activeTtsAudio && activeTtsAudio.paused && !activeTtsAudio.ended) {
+        state.ttsPlaying = true;
+        state.ttsPaused = false;
+        activeTtsAudio.playbackRate = Number(state.ttsRate) || 1;
+        activeTtsAudio.play().then(() => {
+          setTtsStatusText();
+        }).catch(() => {
+          ttsSpeakIndex(state.ttsParaIndex || 0);
+        });
+        return;
       }
+
+      ttsSpeakIndex(state.ttsParaIndex || 0);
     }
 
     function stopTts(hideBar = true) {
       state.ttsSessionId += 1;
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAllTtsAudio();
       state.ttsPlaying = false;
       state.ttsPaused = false;
       state.ttsParaIndex = 0;
@@ -5378,15 +5711,12 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     }
 
     function toggleTtsBar() {
-      if (!('speechSynthesis' in window)) {
-        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Web Speech API)');
-        return;
-      }
       if (state.ttsOpen) {
         stopTts(true);
       } else {
         state.ttsOpen = true;
         $('ttsPlayerBar').classList.remove('hidden');
+        syncDefaultTtsEngineAndVoices();
         ttsSpeakIndex(0);
       }
     }
@@ -5489,15 +5819,46 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     $('btnTtsNextPara').addEventListener('click', () => {
       ttsSpeakIndex((state.ttsParaIndex || 0) + 1);
     });
+    $('selectTtsEngine').addEventListener('change', (e) => {
+      ttsEngineUserChosen = true;
+      state.ttsEngine = e.target.value === 'browser' ? 'browser' : 'gemini';
+      populateTtsVoiceOptions();
+      if (state.ttsPlaying || state.ttsPaused) {
+        const curIdx = state.ttsParaIndex || 0;
+        state.ttsSessionId += 1;
+        stopAllTtsAudio();
+        ttsSpeakIndex(curIdx);
+      } else {
+        setTtsStatusText();
+      }
+    });
+    $('selectTtsVoice').addEventListener('change', (e) => {
+      if (state.ttsEngine === 'gemini') {
+        state.ttsGeminiVoice = e.target.value || 'Kore';
+      } else {
+        state.ttsBrowserVoiceURI = e.target.value || '';
+      }
+      if (state.ttsPlaying || state.ttsPaused) {
+        const curIdx = state.ttsParaIndex || 0;
+        state.ttsSessionId += 1;
+        stopAllTtsAudio();
+        ttsSpeakIndex(curIdx);
+      }
+    });
     $('selectTtsRate').addEventListener('change', (e) => {
       state.ttsRate = parseFloat(e.target.value) || 1;
-      if (state.ttsPlaying) {
+      if (state.ttsEngine === 'gemini' && activeTtsAudio) {
+        activeTtsAudio.playbackRate = state.ttsRate;
+      } else if (state.ttsPlaying) {
         ttsSpeakIndex(state.ttsParaIndex || 0);
       }
     });
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+        if (state.ttsEngine === 'browser') populateTtsVoiceOptions();
+      };
     }
 
     loadLocalPrefs();
