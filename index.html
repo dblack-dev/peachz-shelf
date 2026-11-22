@@ -271,22 +271,53 @@
       </div>
 
       <!-- Search & Filters -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div class="relative flex-1 max-w-md">
-          <svg class="w-4 h-4 text-app-sub absolute left-3.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="librarySearchInput" type="text" placeholder="ค้นหาชื่อเรื่อง, ผู้แต่ง, แท็ก..."
-            class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-app-surface border border-app text-sm text-app-main placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400" />
+      <div class="space-y-2.5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="relative flex-1 max-w-md">
+            <svg class="w-4 h-4 text-app-sub absolute left-3.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="librarySearchInput" type="text" placeholder="ค้นหาชื่อเรื่อง, ผู้แต่ง, แท็ก..."
+              class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-app-surface border border-app text-sm text-app-main placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400" />
+          </div>
+          <div id="filterTabs" class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <button type="button" data-filter="all" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">ทั้งหมด</button>
+            <button type="button" data-filter="reading" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">กำลังอ่าน</button>
+            <button type="button" data-filter="completed" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">อ่านจบแล้ว</button>
+            <button type="button" data-filter="plan" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">ดองไว้</button>
+            <button type="button" data-filter="fav" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">เรื่องโปรด ❤️</button>
+            <label class="px-3.5 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition shrink-0 cursor-pointer">
+              📥 นำเข้า JSON
+              <input id="inputImportNovelJson" type="file" accept=".json,application/json" class="hidden" />
+            </label>
+          </div>
         </div>
-        <div id="filterTabs" class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <button type="button" data-filter="all" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">ทั้งหมด</button>
-          <button type="button" data-filter="reading" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">กำลังอ่าน</button>
-          <button type="button" data-filter="completed" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">อ่านจบแล้ว</button>
-          <button type="button" data-filter="plan" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">ดองไว้</button>
-          <button type="button" data-filter="fav" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shrink-0">เรื่องโปรด ❤️</button>
-          <label class="px-3.5 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition shrink-0 cursor-pointer">
-            📥 นำเข้า JSON
-            <input id="inputImportNovelJson" type="file" accept=".json,application/json" class="hidden" />
-          </label>
+
+        <!-- Library Sort & Manual Reorder Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="selectLibrarySort" title="รูปแบบการจัดเรียงนิยายหน้าแรก"
+              class="px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main focus:outline-none">
+              <option value="updated_desc">🕒 เรียง: อ่าน/อัปเดตล่าสุด</option>
+              <option value="manual">↕️ เรียง: จัดลำดับเอง (Manual)</option>
+              <option value="title_asc">🔤 เรียง: ชื่อเรื่อง (ก-ฮ / A-Z)</option>
+              <option value="created_desc">🆕 เรียง: เพิ่มใหม่ล่าสุด</option>
+              <option value="created_asc">⏳ เรียง: เพิ่มเก่า → ใหม่</option>
+              <option value="chapters_desc">📚 เรียง: จำนวนตอน (มาก → น้อย)</option>
+            </select>
+            <button id="btnToggleLibraryManualSort" type="button"
+              class="px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition">
+              ↕️ จัดลำดับเอง
+            </button>
+          </div>
+          <span class="text-[11px] text-app-sub">กด 📌 เพื่อปักหมุดเล่มโปรดไว้บนสุด • กด 🔖 ในตอนเพื่อคั่นหน้าอ่านถึงไหน</span>
+        </div>
+
+        <!-- Library Manual Reorder Toolbar -->
+        <div id="libraryManualToolbar" class="hidden p-2.5 rounded-2xl bg-app-accent-soft border border-app flex items-center justify-between gap-2 flex-wrap">
+          <span class="text-xs font-semibold text-app-accent">โหมดจัดลำดับนิยายเอง — กด ◀ / ▶ เพื่อย้ายตำแหน่ง หรือ ⏫ เพื่อดันขึ้นบนสุด (เล่มที่ปักหมุด 📌 จะอยู่กลุ่มบนสุด)</span>
+          <button id="btnFinishLibraryManualSort" type="button"
+            class="px-3 py-1 rounded-xl bg-app-accent text-white text-xs font-semibold transition">
+            เสร็จสิ้น
+          </button>
         </div>
       </div>
 
@@ -369,11 +400,24 @@
               <h2 id="detailTitle" class="text-xl sm:text-2xl font-bold text-app-main leading-snug"></h2>
               <p id="detailAuthor" class="text-xs sm:text-sm text-app-sub mt-0.5"></p>
             </div>
-            <button id="btnDetailFav" type="button" title="เรื่องโปรด"
-              class="p-2 rounded-xl bg-app-subtle border border-app text-lg leading-none transition active:scale-90"></button>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button id="btnDetailPin" type="button" title="ปักหมุดไว้ด้านบนชั้นหนังสือ"
+                class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold leading-none transition active:scale-95">
+                📌 ปักหมุด
+              </button>
+              <button id="btnDetailFav" type="button" title="เรื่องโปรด"
+                class="p-2 rounded-xl bg-app-subtle border border-app text-lg leading-none transition active:scale-90"></button>
+            </div>
           </div>
 
           <div id="detailTags" class="flex flex-wrap gap-1.5"></div>
+          <div id="detailBookmarkBanner" class="hidden p-2.5 rounded-2xl bg-amber-500/10 border border-amber-400/40 flex flex-wrap items-center justify-between gap-2">
+            <span id="detailBookmarkText" class="text-xs font-semibold text-amber-800 dark:text-amber-300 truncate"></span>
+            <button id="btnJumpToBookmark" type="button"
+              class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shrink-0 transition">
+              ไปที่ตอนคั่นหน้า →
+            </button>
+          </div>
           <p id="detailSynopsis" class="text-xs sm:text-sm text-app-sub leading-relaxed whitespace-pre-line"></p>
 
           <div class="pt-2 flex flex-wrap items-center gap-2.5">
@@ -648,7 +692,11 @@
                 <div id="readerBodyOrder" class="text-xs font-semibold text-app-accent"></div>
                 <span id="readerTransEngineBadge" class="hidden"></span>
               </div>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button id="btnReaderBookmarkTop" type="button" title="คั่นหน้าว่าอ่านถึงบทนี้ (จะแสดงสัญลักษณ์ในหน้าสารบัญและชั้นหนังสือ)"
+                  class="px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
+                  🔖 คั่นหน้า / อ่านถึงตอนนี้
+                </button>
                 <button id="btnReaderCopyContent" type="button" title="คัดลอกเฉพาะเนื้อหานิยายตอนนี้"
                   class="px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
                   📋 คัดลอกเนื้อหา
@@ -718,21 +766,29 @@
 
           <div id="readerContent" class="reader-content font-sarabun leading-relaxed" style="font-size: 18px; line-height: 1.95;"></div>
 
-          <!-- Bottom Chapter Nav -->
-          <nav class="pt-8 border-t border-app flex items-center justify-between gap-2">
-            <button id="btnPrevChapter" type="button"
-              class="px-4 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-main disabled:opacity-35 disabled:pointer-events-none transition">
-              ← ตอนก่อนหน้า
-            </button>
-            <button id="btnBottomToc" type="button"
-              class="px-4 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-sub hover:text-app-main transition">
-              สารบัญ
-            </button>
-            <button id="btnNextChapter" type="button"
-              class="px-4 py-2.5 rounded-2xl bg-app-accent text-white text-xs sm:text-sm font-semibold disabled:opacity-35 disabled:pointer-events-none transition">
-              ตอนถัดไป →
-            </button>
-          </nav>
+          <!-- Bottom Bookmark Bar & Chapter Nav -->
+          <div class="pt-6 border-t border-app space-y-4">
+            <div class="flex justify-center">
+              <button id="btnReaderBookmarkBottom" type="button"
+                class="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-main hover:opacity-90 transition">
+                🔖 คั่นหน้า / อ่านถึงตอนนี้ (บันทึกไว้อ่านต่อ)
+              </button>
+            </div>
+            <nav class="flex items-center justify-between gap-2">
+              <button id="btnPrevChapter" type="button"
+                class="px-4 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-main disabled:opacity-35 disabled:pointer-events-none transition">
+                ← ตอนก่อนหน้า
+              </button>
+              <button id="btnBottomToc" type="button"
+                class="px-4 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-sub hover:text-app-main transition">
+                สารบัญ
+              </button>
+              <button id="btnNextChapter" type="button"
+                class="px-4 py-2.5 rounded-2xl bg-app-accent text-white text-xs sm:text-sm font-semibold disabled:opacity-35 disabled:pointer-events-none transition">
+                ตอนถัดไป →
+              </button>
+            </nav>
+          </div>
         </article>
       </div>
 
@@ -1543,6 +1599,7 @@
 
     const PREFS_LOCAL_KEY = 'peachz_shelf_prefs_v1';
     const TRANS_LOCAL_KEY = 'peachz_translator_cfg_v1';
+    const SHELF_ORG_LOCAL_KEY = 'peachz_shelf_org_v1';
     const ALLOWED_OWNER_UID = 'b1nmd1qyK0bd48iLLiBGMF3mtCi1';
     const ALLOWED_OWNER_EMAIL = 'dew.blackdevil@gmail.com';
     const DEFAULT_TRANS_STYLE = 'แปลเป็นภาษาไทยสำนวนนิยายที่สละสลวย อ่านลื่นไหลเป็นธรรมชาติ ไม่แปลตรงตัวแข็งทื่อ รักษาการแบ่งย่อหน้าให้ตรงกับต้นฉบับ';
@@ -1555,6 +1612,13 @@
       activeChapterId: null,
       filter: 'all',
       search: '',
+      libraryManualReorderMode: false,
+      shelfOrg: {
+        sortMode: 'updated_desc',
+        manualOrder: [],
+        pinnedIds: [],
+        bookmarks: {}
+      },
       chapterSortAsc: true,
       reorderMode: false,
       editingNovelId: null,
@@ -1855,6 +1919,97 @@
       if (bEl) bEl.textContent = summary;
     }
 
+    const SHELF_SORT_MODES = new Set(['updated_desc', 'manual', 'title_asc', 'created_desc', 'created_asc', 'chapters_desc']);
+
+    function normalizeShelfOrg(raw = {}) {
+      const sortMode = SHELF_SORT_MODES.has(raw.sortMode) ? raw.sortMode : 'updated_desc';
+      const manualOrder = Array.isArray(raw.manualOrder)
+        ? Array.from(new Set(raw.manualOrder.map((id) => String(id || '').trim()).filter(Boolean)))
+        : [];
+      const pinnedIds = Array.isArray(raw.pinnedIds)
+        ? Array.from(new Set(raw.pinnedIds.map((id) => String(id || '').trim()).filter(Boolean)))
+        : [];
+      const bookmarks = {};
+      if (raw.bookmarks && typeof raw.bookmarks === 'object' && !Array.isArray(raw.bookmarks)) {
+        Object.entries(raw.bookmarks).forEach(([nid, bm]) => {
+          if (!nid || !bm || typeof bm !== 'object' || !bm.chapterId) return;
+          bookmarks[String(nid)] = {
+            chapterId: String(bm.chapterId),
+            chapterOrder: Number(bm.chapterOrder || 0),
+            chapterTitle: String(bm.chapterTitle || '').slice(0, 200),
+            scrollRatio: Math.min(1, Math.max(0, Number(bm.scrollRatio) || 0)),
+            updatedAt: Number(bm.updatedAt) || Date.now()
+          };
+        });
+      }
+      return { sortMode, manualOrder, pinnedIds, bookmarks };
+    }
+
+    function isNovelPinned(novelId) {
+      return Boolean(novelId && state.shelfOrg.pinnedIds.includes(novelId));
+    }
+
+    function getNovelBookmark(novelId) {
+      return (novelId && state.shelfOrg.bookmarks[novelId]) || null;
+    }
+
+    function syncShelfOrgControls() {
+      const sel = $('selectLibrarySort');
+      if (sel) sel.value = state.shelfOrg.sortMode || 'updated_desc';
+      const activeManual = state.libraryManualReorderMode || state.shelfOrg.sortMode === 'manual';
+      const btnToggle = $('btnToggleLibraryManualSort');
+      if (btnToggle) {
+        btnToggle.className = state.libraryManualReorderMode
+          ? 'px-3 py-1.5 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm transition'
+          : 'px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition';
+      }
+      const tb = $('libraryManualToolbar');
+      if (tb) tb.classList.toggle('hidden', !activeManual);
+    }
+
+    async function saveShelfOrg(syncToCloud = true) {
+      state.shelfOrg = normalizeShelfOrg(state.shelfOrg);
+      try {
+        localStorage.setItem(SHELF_ORG_LOCAL_KEY, JSON.stringify(state.shelfOrg));
+      } catch (e) {}
+      syncShelfOrgControls();
+      if (!syncToCloud || !state.user) return;
+      try {
+        await setDoc(doc(db, 'users', state.user.uid, 'sync', 'peachzShelfOrg'), {
+          stateJson: JSON.stringify(state.shelfOrg).slice(0, 950000),
+          updatedAt: Date.now(),
+          updatedBy: 'peachz-shelf'
+        });
+      } catch (err) {
+        console.warn('saveShelfOrg cloud sync failed:', err);
+      }
+    }
+
+    async function loadCloudShelfOrg() {
+      if (!state.user) return;
+      try {
+        const snap = await getDoc(doc(db, 'users', state.user.uid, 'sync', 'peachzShelfOrg'));
+        if (snap.exists() && typeof snap.data()?.stateJson === 'string') {
+          const parsed = JSON.parse(snap.data().stateJson);
+          state.shelfOrg = normalizeShelfOrg(parsed);
+          localStorage.setItem(SHELF_ORG_LOCAL_KEY, JSON.stringify(state.shelfOrg));
+          syncShelfOrgControls();
+          renderLibrary();
+          if (state.activeNovelId) {
+            renderDetailHeader();
+            renderChaptersList();
+          }
+          if (state.activeChapterId) {
+            const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+            updateReaderBookmarkUI(ch);
+            renderReaderTocDrawer();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load cloud shelfOrg:', err);
+      }
+    }
+
     function loadLocalPrefs() {
       try {
         const raw = localStorage.getItem(PREFS_LOCAL_KEY);
@@ -1866,9 +2021,14 @@
         if (tRaw) {
           state.translator = normalizeTranslatorState(JSON.parse(tRaw));
         }
+        const sRaw = localStorage.getItem(SHELF_ORG_LOCAL_KEY);
+        if (sRaw) {
+          state.shelfOrg = normalizeShelfOrg(JSON.parse(sRaw));
+        }
       } catch (e) {}
       applyReaderPrefsUI();
       renderTranslatorStatusBadges();
+      syncShelfOrgControls();
     }
 
     let prefsSaveTimer = null;
@@ -2054,10 +2214,101 @@
       return state.novels.find((n) => n.id === state.activeNovelId) || null;
     }
 
+    function ensureManualOrderContainsAllNovels() {
+      const existingSet = new Set(state.novels.map((n) => n.id));
+      const clean = state.shelfOrg.manualOrder.filter((id) => existingSet.has(id));
+      const inOrderSet = new Set(clean);
+      state.novels.forEach((n) => {
+        if (!inOrderSet.has(n.id)) {
+          clean.push(n.id);
+          inOrderSet.add(n.id);
+        }
+      });
+      state.shelfOrg.manualOrder = clean;
+    }
+
+    function getSortedLibraryNovels(novelsList) {
+      ensureManualOrderContainsAllNovels();
+      const mode = state.shelfOrg.sortMode || 'updated_desc';
+      const orderIdxMap = new Map(state.shelfOrg.manualOrder.map((id, idx) => [id, idx]));
+
+      return [...novelsList].sort((a, b) => {
+        const pinA = isNovelPinned(a.id);
+        const pinB = isNovelPinned(b.id);
+        if (pinA !== pinB) return pinA ? -1 : 1;
+
+        if (mode === 'manual') {
+          return (orderIdxMap.get(a.id) ?? 999999) - (orderIdxMap.get(b.id) ?? 999999);
+        }
+        if (mode === 'title_asc') {
+          const tA = (a.translatedTitle || a.title || '').trim();
+          const tB = (b.translatedTitle || b.title || '').trim();
+          return tA.localeCompare(tB, 'th');
+        }
+        if (mode === 'created_desc') {
+          return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+        }
+        if (mode === 'created_asc') {
+          return (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0);
+        }
+        if (mode === 'chapters_desc') {
+          return ((Number(b.chapterCount) || 0) - (Number(a.chapterCount) || 0)) ||
+            ((Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+        }
+        return (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0);
+      });
+    }
+
+    async function togglePinNovel(novel) {
+      if (!novel) return;
+      const pinned = isNovelPinned(novel.id);
+      if (pinned) {
+        state.shelfOrg.pinnedIds = state.shelfOrg.pinnedIds.filter((id) => id !== novel.id);
+        showToast(`ถอนหมุด "${novel.translatedTitle || novel.title}" แล้ว`);
+      } else {
+        state.shelfOrg.pinnedIds = [novel.id, ...state.shelfOrg.pinnedIds.filter((id) => id !== novel.id)];
+        showToast(`📌 ปักหมุด "${novel.translatedTitle || novel.title}" ไว้ด้านบนแล้ว`);
+      }
+      renderLibrary();
+      if (state.activeNovelId === novel.id) renderDetailHeader();
+      await saveShelfOrg(true);
+    }
+
+    async function moveNovelManual(novelId, direction, visibleSorted) {
+      const targetPinned = isNovelPinned(novelId);
+      const groupList = visibleSorted.filter((n) => isNovelPinned(n.id) === targetPinned).map((n) => n.id);
+      const idx = groupList.indexOf(novelId);
+      if (idx === -1) return;
+
+      if (direction === 'prev' && idx > 0) {
+        [groupList[idx - 1], groupList[idx]] = [groupList[idx], groupList[idx - 1]];
+      } else if (direction === 'next' && idx < groupList.length - 1) {
+        [groupList[idx], groupList[idx + 1]] = [groupList[idx + 1], groupList[idx]];
+      } else if (direction === 'top' && idx > 0) {
+        groupList.splice(idx, 1);
+        groupList.unshift(novelId);
+      } else {
+        return;
+      }
+
+      const otherVisible = visibleSorted.filter((n) => isNovelPinned(n.id) !== targetPinned).map((n) => n.id);
+      const newOrderStart = targetPinned ? [...groupList, ...otherVisible] : [...otherVisible, ...groupList];
+      const startSet = new Set(newOrderStart);
+      const remainder = state.novels.map((n) => n.id).filter((id) => !startSet.has(id));
+
+      state.shelfOrg.manualOrder = [...newOrderStart, ...remainder];
+      state.shelfOrg.sortMode = 'manual';
+      syncShelfOrgControls();
+      renderLibrary();
+      await saveShelfOrg(true);
+    }
+
     // =====================================================================
     // RENDER LIBRARY
     // =====================================================================
     function renderLibrary() {
+      syncShelfOrgControls();
+
       // Filter buttons
       document.querySelectorAll('[data-filter]').forEach((btn) => {
         const active = btn.getAttribute('data-filter') === state.filter;
@@ -2066,15 +2317,18 @@
         }`;
       });
 
-      // Continue reading banner
-      const recentNovel = state.novels.find((n) => n.lastChapterId);
+      // Continue reading banner (prefer latest updated bookmarked or recent novel)
+      const sortedByRecency = [...state.novels].sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+      const recentNovel = sortedByRecency.find((n) => getNovelBookmark(n.id) || n.lastChapterId);
       const banner = $('continueBanner');
       if (recentNovel) {
+        const bm = getNovelBookmark(recentNovel.id);
+        const targetChapterId = bm ? bm.chapterId : recentNovel.lastChapterId;
         banner.classList.remove('hidden');
         $('continueTitle').textContent = recentNovel.translatedTitle || recentNovel.title;
-        $('continueChapter').textContent = recentNovel.lastChapterTitle
-          ? `ค้างอยู่ที่: ${recentNovel.lastChapterTitle}`
-          : 'อ่านต่อจากตอนล่าสุด';
+        $('continueChapter').textContent = bm
+          ? `🔖 คั่นหน้าอ่านถึง: ตอนที่ #${Number(bm.chapterOrder)} ${bm.chapterTitle}`
+          : (recentNovel.lastChapterTitle ? `ค้างอยู่ที่: ${recentNovel.lastChapterTitle}` : 'อ่านต่อจากตอนล่าสุด');
         const coverBox = $('continueCoverBox');
         if (recentNovel.coverUrl) {
           coverBox.innerHTML = `<img src="${escapeHtml(recentNovel.coverUrl)}" alt="" class="w-full h-full object-cover" onerror="this.remove()" />`;
@@ -2084,14 +2338,14 @@
         $('btnContinueReading').onclick = async () => {
           state.activeNovelId = recentNovel.id;
           await loadChaptersForNovel(recentNovel.id);
-          openReaderChapter(recentNovel.lastChapterId, true);
+          openReaderChapter(targetChapterId, true);
         };
       } else {
         banner.classList.add('hidden');
       }
 
       const keyword = state.search.trim().toLowerCase();
-      const filtered = state.novels.filter((n) => {
+      const filtered = getSortedLibraryNovels(state.novels.filter((n) => {
         if (state.filter === 'fav' && !n.isFavorite) return false;
         if (['reading', 'completed', 'plan'].includes(state.filter) && n.status !== state.filter) return false;
         if (keyword) {
@@ -2099,7 +2353,7 @@
           if (!hay.includes(keyword)) return false;
         }
         return true;
-      });
+      }));
 
       const grid = $('novelsGrid');
       grid.innerHTML = '';
@@ -2115,9 +2369,15 @@
         return;
       }
 
+      const showManualControls = state.libraryManualReorderMode || state.shelfOrg.sortMode === 'manual';
+
       for (const novel of filtered) {
+        const pinned = isNovelPinned(novel.id);
+        const bm = getNovelBookmark(novel.id);
         const card = document.createElement('div');
-        card.className = 'bg-app-surface border border-app rounded-3xl p-4 shadow-sm hover:shadow-md transition flex gap-3.5 cursor-pointer group';
+        card.className = `bg-app-surface border rounded-3xl p-4 shadow-sm hover:shadow-md transition flex flex-col gap-3 cursor-pointer group ${
+          pinned ? 'border-amber-400/80 ring-1 ring-amber-400/35' : 'border-app'
+        }`;
 
         const coverHtml = novel.coverUrl
           ? `<img src="${escapeHtml(novel.coverUrl)}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" />`
@@ -2127,33 +2387,90 @@
           .map((t) => `<span class="px-2 py-0.5 rounded-lg bg-app-subtle text-[10px] text-app-sub">${escapeHtml(t)}</span>`)
           .join('');
 
-        card.innerHTML = `
-          <div class="w-20 h-28 rounded-2xl overflow-hidden bg-gradient-to-br from-rose-400 to-orange-400 shrink-0 flex items-center justify-center text-white font-bold text-2xl shadow-sm">
-            ${coverHtml}
-          </div>
-          <div class="flex-1 min-w-0 flex flex-col justify-between gap-2">
-            <div class="space-y-1">
-              <div class="flex items-start justify-between gap-1.5">
-                <h3 class="font-bold text-sm sm:text-base text-app-main line-clamp-2 group-hover:text-app-accent transition">${escapeHtml(novel.translatedTitle || novel.title)}</h3>
-                <button type="button" class="btn-card-fav shrink-0 text-base leading-none p-1 rounded-lg hover:bg-app-subtle" title="เรื่องโปรด">
-                  ${novel.isFavorite ? '❤️' : '🤍'}
-                </button>
+        const groupFiltered = filtered.filter((item) => isNovelPinned(item.id) === pinned);
+        const gIdx = groupFiltered.findIndex((item) => item.id === novel.id);
+
+        const bookmarkHtml = bm
+          ? `<button type="button" class="btn-card-bookmark w-full text-left px-2.5 py-1 rounded-xl bg-amber-500/12 border border-amber-400/30 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition truncate" title="คลิกเพื่อเปิดอ่านต่อจากตอนที่คั่นไว้">🔖 อ่านถึง: #${Number(bm.chapterOrder)} ${escapeHtml(bm.chapterTitle || '')}</button>`
+          : (novel.lastChapterTitle ? `<div class="text-[11px] text-app-sub truncate">📖 ล่าสุด: ${escapeHtml(novel.lastChapterTitle)}</div>` : '');
+
+        const manualBarHtml = showManualControls
+          ? `<div class="flex items-center justify-between gap-1.5 pt-2 border-t border-app/60 text-[11px]">
+              <span class="text-app-sub font-medium">${pinned ? '📌 ลำดับในหมวดปักหมุด' : '↕️ ย้ายตำแหน่ง'}</span>
+              <div class="flex items-center gap-1">
+                <button type="button" class="btn-novel-top px-2 py-0.5 rounded-lg bg-app-subtle border border-app font-semibold disabled:opacity-35" ${gIdx <= 0 ? 'disabled' : ''} title="ย้ายขึ้นบนสุด">⏫</button>
+                <button type="button" class="btn-novel-prev px-2 py-0.5 rounded-lg bg-app-subtle border border-app font-semibold disabled:opacity-35" ${gIdx <= 0 ? 'disabled' : ''} title="เลื่อนก่อนหน้า">◀</button>
+                <button type="button" class="btn-novel-next px-2 py-0.5 rounded-lg bg-app-subtle border border-app font-semibold disabled:opacity-35" ${gIdx >= groupFiltered.length - 1 ? 'disabled' : ''} title="เลื่อนถัดไป">▶</button>
               </div>
-              ${novel.translatedTitle && novel.translatedTitle !== novel.title ? `<div class="text-[11px] text-app-sub truncate">${escapeHtml(novel.title)}</div>` : ''}
-              <div class="text-xs text-app-sub truncate">${escapeHtml(novel.author || 'ไม่ระบุผู้แต่ง')}</div>
-              <div class="flex flex-wrap gap-1">${tagsHtml}</div>
+            </div>`
+          : '';
+
+        card.innerHTML = `
+          <div class="flex gap-3.5">
+            <div class="w-20 h-28 rounded-2xl overflow-hidden bg-gradient-to-br from-rose-400 to-orange-400 shrink-0 flex items-center justify-center text-white font-bold text-2xl shadow-sm">
+              ${coverHtml}
             </div>
-            <div class="flex items-center justify-between gap-2 pt-1 border-t border-app text-[11px] text-app-sub">
-              <span>${STATUS_LABELS[novel.status] || '📖 กำลังอ่าน'}</span>
-              <span class="font-semibold text-app-main">${Number(novel.chapterCount || 0)} ตอน</span>
+            <div class="flex-1 min-w-0 flex flex-col justify-between gap-2">
+              <div class="space-y-1">
+                <div class="flex items-start justify-between gap-1">
+                  <div class="min-w-0 flex-1 space-y-0.5">
+                    ${pinned ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">📌 ปักหมุด</span>' : ''}
+                    <h3 class="font-bold text-sm sm:text-base text-app-main line-clamp-2 group-hover:text-app-accent transition">${escapeHtml(novel.translatedTitle || novel.title)}</h3>
+                  </div>
+                  <div class="flex items-center gap-0.5 shrink-0">
+                    <button type="button" class="btn-card-pin p-1 rounded-lg text-sm leading-none transition ${pinned ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300' : 'opacity-60 hover:opacity-100 hover:bg-app-subtle'}" title="${pinned ? 'ถอนหมุด' : 'ปักหมุดไว้ด้านบน'}">📌</button>
+                    <button type="button" class="btn-card-fav shrink-0 text-base leading-none p-1 rounded-lg hover:bg-app-subtle" title="เรื่องโปรด">
+                      ${novel.isFavorite ? '❤️' : '🤍'}
+                    </button>
+                  </div>
+                </div>
+                ${novel.translatedTitle && novel.translatedTitle !== novel.title ? `<div class="text-[11px] text-app-sub truncate">${escapeHtml(novel.title)}</div>` : ''}
+                <div class="text-xs text-app-sub truncate">${escapeHtml(novel.author || 'ไม่ระบุผู้แต่ง')}</div>
+                <div class="flex flex-wrap gap-1">${tagsHtml}</div>
+              </div>
+              <div class="space-y-1.5">
+                ${bookmarkHtml}
+                <div class="flex items-center justify-between gap-2 pt-1 border-t border-app text-[11px] text-app-sub">
+                  <span>${STATUS_LABELS[novel.status] || '📖 กำลังอ่าน'}</span>
+                  <span class="font-semibold text-app-main">${Number(novel.chapterCount || 0)} ตอน</span>
+                </div>
+              </div>
             </div>
           </div>
+          ${manualBarHtml}
         `;
 
+        card.querySelector('.btn-card-pin').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await togglePinNovel(novel);
+        });
         card.querySelector('.btn-card-fav').addEventListener('click', async (e) => {
           e.stopPropagation();
           await toggleFavoriteNovel(novel);
         });
+        const bmBtn = card.querySelector('.btn-card-bookmark');
+        if (bmBtn && bm) {
+          bmBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            state.activeNovelId = novel.id;
+            await loadChaptersForNovel(novel.id);
+            openReaderChapter(bm.chapterId, true);
+          });
+        }
+        if (showManualControls) {
+          card.querySelector('.btn-novel-top')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            moveNovelManual(novel.id, 'top', filtered);
+          });
+          card.querySelector('.btn-novel-prev')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            moveNovelManual(novel.id, 'prev', filtered);
+          });
+          card.querySelector('.btn-novel-next')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            moveNovelManual(novel.id, 'next', filtered);
+          });
+        }
 
         card.addEventListener('click', () => openNovelDetail(novel.id));
         grid.appendChild(card);
@@ -2216,6 +2533,27 @@
         novel.author ? `ผู้แต่ง: ${novel.author}` : 'ไม่ระบุผู้แต่ง'
       ].filter(Boolean).join(' • ');
       $('btnDetailFav').textContent = novel.isFavorite ? '❤️' : '🤍';
+      const detailPinned = isNovelPinned(novel.id);
+      const pinBtn = $('btnDetailPin');
+      if (pinBtn) {
+        pinBtn.textContent = detailPinned ? '📌 ปักหมุดแล้ว' : '📌 ปักหมุด';
+        pinBtn.className = detailPinned
+          ? 'px-2.5 py-1.5 rounded-xl bg-amber-500 text-white text-xs font-semibold leading-none shadow-sm transition active:scale-95'
+          : 'px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main leading-none transition active:scale-95';
+      }
+      const bm = getNovelBookmark(novel.id);
+      const bmBanner = $('detailBookmarkBanner');
+      if (bmBanner) {
+        const matchedCh = bm && state.chapters.length > 0 ? state.chapters.find((c) => c.id === bm.chapterId) : null;
+        if (bm && (state.chapters.length === 0 || matchedCh)) {
+          const chOrder = matchedCh ? Number(matchedCh.order) : Number(bm.chapterOrder);
+          const chTitle = matchedCh ? (matchedCh.translatedTitle || matchedCh.title) : bm.chapterTitle;
+          $('detailBookmarkText').textContent = `🔖 คั่นหน้าอ่านถึง: ตอนที่ #${chOrder} — ${chTitle}`;
+          bmBanner.classList.remove('hidden');
+        } else {
+          bmBanner.classList.add('hidden');
+        }
+      }
       $('detailSynopsis').textContent = novel.translatedSynopsis || novel.synopsis || 'ยังไม่มีเรื่องย่อ';
       $('detailStatusSelect').value = novel.status || 'reading';
       $('detailNotesInput').value = novel.notes || '';
@@ -2296,12 +2634,16 @@
       }
       $('chaptersEmpty').classList.add('hidden');
 
+      const bm = getNovelBookmark(novel.id);
       const sorted = (state.reorderMode || state.chapterSortAsc) ? [...state.chapters] : [...state.chapters].reverse();
       sorted.forEach((ch, idx) => {
         const isLast = novel.lastChapterId === ch.id;
+        const isBookmarked = Boolean(bm && bm.chapterId === ch.id);
         const hasNote = Boolean(ch.note && String(ch.note).trim());
         const row = document.createElement('div');
-        row.className = `py-3 px-2 flex items-center justify-between gap-2 rounded-xl hover:bg-app-subtle transition ${state.reorderMode ? '' : 'cursor-pointer'} ${isLast ? 'bg-app-accent-soft/50' : ''}`;
+        row.className = `py-3 px-2 flex items-center justify-between gap-2 rounded-xl hover:bg-app-subtle transition ${state.reorderMode ? '' : 'cursor-pointer'} ${
+          isBookmarked ? 'bg-amber-500/12 ring-1 ring-amber-400/50' : (isLast ? 'bg-app-accent-soft/50' : '')
+        }`;
 
         if (state.reorderMode) {
           row.innerHTML = `
@@ -2319,6 +2661,9 @@
         } else {
           const hasTrans = Boolean(ch.translatedContent && String(ch.translatedContent).trim());
           const displayTitle = ch.translatedTitle || ch.title;
+          const progressBadgeHtml = isBookmarked
+            ? '<span class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shrink-0">🔖 อ่านถึงตอนนี้</span>'
+            : (isLast ? '<span class="px-2 py-0.5 rounded-full bg-app-accent text-white text-[10px] font-semibold shrink-0">อ่านค้าง</span>' : '');
           row.innerHTML = `
             <div class="min-w-0 flex-1 flex items-center gap-2.5">
               <span class="px-2 py-0.5 rounded-lg bg-app-subtle border border-app text-[11px] font-semibold text-app-sub shrink-0">#${Number(ch.order)}</span>
@@ -2327,15 +2672,20 @@
                 ${ch.translatedTitle && ch.translatedTitle !== ch.title ? `<div class="text-[11px] text-app-sub truncate">${escapeHtml(ch.title)}</div>` : ''}
               </div>
               ${hasTrans ? getChapterTransBadgeHtml(ch, false) : ''}
-              ${isLast ? '<span class="px-2 py-0.5 rounded-full bg-app-accent text-white text-[10px] font-semibold shrink-0">อ่านค้าง</span>' : ''}
+              ${progressBadgeHtml}
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <span class="hidden sm:inline text-[11px] text-app-sub mr-2">${Number(ch.wordCount || 0).toLocaleString()} ตัวอักษร</span>
+              <button type="button" class="btn-ch-bookmark p-1.5 rounded-lg text-xs transition ${isBookmarked ? 'bg-amber-500 text-white shadow-sm' : 'hover:bg-app-surface opacity-70 hover:opacity-100'}" title="${isBookmarked ? 'ยกเลิกคั่นหน้าตอนนี้' : 'คั่นหน้า: อ่านถึงตอนนี้'}">🔖</button>
               <button type="button" class="btn-ch-note p-1.5 rounded-lg text-xs transition ${hasNote ? 'bg-app-accent-soft text-app-accent' : 'hover:bg-app-surface opacity-75 hover:opacity-100'}" title="เรื่องย่อ / ข้อมูลตอนนี้">📝</button>
               <button type="button" class="btn-ch-edit p-1.5 rounded-lg hover:bg-app-surface text-xs" title="แก้ไขตอน">✏️</button>
               <button type="button" class="btn-ch-del p-1.5 rounded-lg hover:bg-rose-500/15 text-rose-500 text-xs" title="ลบตอน">🗑️</button>
             </div>
           `;
+          row.querySelector('.btn-ch-bookmark').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleChapterBookmark(ch, false);
+          });
           row.querySelector('.btn-ch-note').addEventListener('click', (e) => {
             e.stopPropagation();
             openChapterNoteModal(ch);
@@ -2348,7 +2698,7 @@
             e.stopPropagation();
             await deleteChapter(ch);
           });
-          row.addEventListener('click', () => openReaderChapter(ch.id, isLast));
+          row.addEventListener('click', () => openReaderChapter(ch.id, isBookmarked || isLast));
         }
         listEl.appendChild(row);
       });
@@ -2481,6 +2831,7 @@
 
       renderReaderChapterContent(ch);
       updateReaderNoteIndicator(ch);
+      updateReaderBookmarkUI(ch);
 
       if (keepTtsPlaying && state.ttsOpen && typeof ttsSpeakIndex === 'function') {
         setTimeout(() => ttsSpeakIndex(0), 120);
@@ -2497,12 +2848,17 @@
 
       renderReaderTocDrawer();
 
-      if (restoreScroll && novel.lastChapterId === ch.id && Number(novel.lastScrollRatio) > 0.02) {
+      const bm = getNovelBookmark(novel.id);
+      const savedRatio = (bm && bm.chapterId === ch.id && Number(bm.scrollRatio) > 0.02)
+        ? Number(bm.scrollRatio)
+        : (novel.lastChapterId === ch.id ? Number(novel.lastScrollRatio) : 0);
+
+      if (restoreScroll && savedRatio > 0.02) {
         isRestoringScroll = true;
         requestAnimationFrame(() => {
           setTimeout(() => {
             const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-            window.scrollTo({ top: maxScroll * Number(novel.lastScrollRatio), behavior: 'instant' });
+            window.scrollTo({ top: maxScroll * savedRatio, behavior: 'instant' });
             isRestoringScroll = false;
           }, 80);
         });
@@ -2512,27 +2868,90 @@
       }
     }
 
+    function updateReaderBookmarkUI(ch) {
+      const novel = getActiveNovel();
+      const bm = getNovelBookmark(novel?.id);
+      const isBookmarked = Boolean(ch && bm && bm.chapterId === ch.id);
+
+      const topBtn = $('btnReaderBookmarkTop');
+      if (topBtn) {
+        topBtn.textContent = isBookmarked ? '🔖 คั่นหน้าไว้แล้ว (อ่านถึงตอนนี้ ✓)' : '🔖 คั่นหน้า / อ่านถึงตอนนี้';
+        topBtn.className = isBookmarked
+          ? 'px-2.5 py-1 rounded-xl bg-amber-500 text-white border border-amber-500 text-[11px] font-semibold shadow-sm transition'
+          : 'px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition';
+      }
+      const botBtn = $('btnReaderBookmarkBottom');
+      if (botBtn) {
+        botBtn.textContent = isBookmarked ? '🔖 คั่นหน้าบทนี้ไว้แล้ว — อ่านถึงตอนนี้ ✓' : '🔖 คั่นหน้า / อ่านถึงตอนนี้ (บันทึกไว้อ่านต่อ)';
+        botBtn.className = isBookmarked
+          ? 'w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-amber-500 text-white border border-amber-500 text-xs sm:text-sm font-semibold shadow-sm transition'
+          : 'w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm font-semibold text-app-main hover:opacity-90 transition';
+      }
+    }
+
+    async function toggleChapterBookmark(targetChapter = null, captureScroll = true) {
+      const novel = getActiveNovel();
+      const ch = targetChapter || state.chapters.find((c) => c.id === state.activeChapterId);
+      if (!novel || !ch) return;
+
+      const existing = getNovelBookmark(novel.id);
+      if (existing && existing.chapterId === ch.id) {
+        delete state.shelfOrg.bookmarks[novel.id];
+        showToast(`นำคั่นหน้าออกจากตอนที่ #${Number(ch.order)} แล้ว`);
+      } else {
+        let ratio = 0;
+        if (captureScroll && !$('viewReader').classList.contains('hidden')) {
+          const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+          ratio = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+        }
+        state.shelfOrg.bookmarks[novel.id] = {
+          chapterId: ch.id,
+          chapterOrder: Number(ch.order),
+          chapterTitle: ch.translatedTitle || ch.title,
+          scrollRatio: ratio,
+          updatedAt: Date.now()
+        };
+        await saveReadingProgress(ch, ratio);
+        showToast(`🔖 คั่นหน้าตอนที่ #${Number(ch.order)} (อ่านถึงตอนนี้) เรียบร้อยแล้ว`);
+      }
+
+      const activeCh = state.chapters.find((c) => c.id === state.activeChapterId);
+      updateReaderBookmarkUI(activeCh);
+      renderReaderTocDrawer();
+      renderChaptersList();
+      renderDetailHeader();
+      renderLibrary();
+      await saveShelfOrg(true);
+    }
+
     function renderReaderTocDrawer() {
+      const novel = getActiveNovel();
+      const bm = getNovelBookmark(novel?.id);
       const list = $('readerTocList');
       list.innerHTML = '';
       for (const ch of state.chapters) {
         const active = ch.id === state.activeChapterId;
+        const isBookmarked = Boolean(bm && bm.chapterId === ch.id);
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between gap-2 transition ${
-          active ? 'bg-app-accent-soft text-app-accent font-bold' : 'text-app-main hover:bg-app-subtle'
+          active ? 'bg-app-accent-soft text-app-accent font-bold' : (isBookmarked ? 'bg-amber-500/10 text-app-main font-semibold' : 'text-app-main hover:bg-app-subtle')
         }`;
         const badgeHtml = getChapterTransBadgeHtml(ch, false);
+        const bmBadge = isBookmarked ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shrink-0">🔖 อ่านถึงตอนนี้</span>' : '';
         btn.innerHTML = `
           <div class="min-w-0 flex items-center gap-2">
             <span class="text-[11px] opacity-75 shrink-0">#${Number(ch.order)}</span>
             <span class="truncate">${escapeHtml(ch.translatedTitle || ch.title)}</span>
           </div>
-          ${badgeHtml}
+          <div class="flex items-center gap-1 shrink-0">
+            ${badgeHtml}
+            ${bmBadge}
+          </div>
         `;
         btn.addEventListener('click', () => {
           $('tocDrawerBackdrop').classList.add('hidden');
-          openReaderChapter(ch.id, false);
+          openReaderChapter(ch.id, isBookmarked);
         });
         list.appendChild(btn);
       }
@@ -2685,6 +3104,10 @@
         }
         await deleteDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id));
         state.novels = state.novels.filter((n) => n.id !== novel.id);
+        state.shelfOrg.pinnedIds = state.shelfOrg.pinnedIds.filter((id) => id !== novel.id);
+        state.shelfOrg.manualOrder = state.shelfOrg.manualOrder.filter((id) => id !== novel.id);
+        delete state.shelfOrg.bookmarks[novel.id];
+        saveShelfOrg(true);
         state.activeNovelId = null;
         state.chapters = [];
         showView('library');
@@ -5095,7 +5518,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       $('appShell').classList.remove('hidden');
       renderUserHeader(user);
       showView('library');
-      await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadNovels()]);
+      await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadCloudShelfOrg(), loadNovels()]);
+      renderLibrary();
     });
 
     getRedirectResult(auth).catch((err) => {
@@ -5186,6 +5610,28 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         renderLibrary();
       });
     });
+    $('selectLibrarySort').addEventListener('change', async (e) => {
+      state.shelfOrg.sortMode = e.target.value;
+      if (e.target.value !== 'manual') {
+        state.libraryManualReorderMode = false;
+      }
+      renderLibrary();
+      await saveShelfOrg(true);
+    });
+    $('btnToggleLibraryManualSort').addEventListener('click', async () => {
+      state.libraryManualReorderMode = !state.libraryManualReorderMode;
+      if (state.libraryManualReorderMode && state.shelfOrg.sortMode !== 'manual') {
+        const currentSorted = getSortedLibraryNovels(state.novels);
+        state.shelfOrg.manualOrder = currentSorted.map((n) => n.id);
+        state.shelfOrg.sortMode = 'manual';
+      }
+      renderLibrary();
+      await saveShelfOrg(true);
+    });
+    $('btnFinishLibraryManualSort').addEventListener('click', () => {
+      state.libraryManualReorderMode = false;
+      renderLibrary();
+    });
     $('btnOpenAddNovel').addEventListener('click', () => openNovelModal(null));
     $('btnEmptyAddNovel').addEventListener('click', () => openNovelModal(null));
     $('inputImportNovelJson').addEventListener('change', async (e) => {
@@ -5234,6 +5680,17 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const novel = getActiveNovel();
       if (novel) toggleFavoriteNovel(novel);
     });
+    $('btnDetailPin').addEventListener('click', () => {
+      const novel = getActiveNovel();
+      if (novel) togglePinNovel(novel);
+    });
+    $('btnJumpToBookmark').addEventListener('click', () => {
+      const novel = getActiveNovel();
+      const bm = getNovelBookmark(novel?.id);
+      if (bm && state.chapters.some((c) => c.id === bm.chapterId)) {
+        openReaderChapter(bm.chapterId, true);
+      }
+    });
     $('detailStatusSelect').addEventListener('change', async (e) => {
       const novel = getActiveNovel();
       if (!state.user || !novel) return;
@@ -5275,6 +5732,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     // Reader Buttons
     $('btnReaderBack').addEventListener('click', () => openNovelDetail(state.activeNovelId));
     $('btnBottomToc').addEventListener('click', () => openNovelDetail(state.activeNovelId));
+    $('btnReaderBookmarkTop').addEventListener('click', () => toggleChapterBookmark(null, true));
+    $('btnReaderBookmarkBottom').addEventListener('click', () => toggleChapterBookmark(null, true));
     $('btnReaderSettingsToggle').addEventListener('click', () => $('readerSettingsPanel').classList.toggle('hidden'));
     $('btnReaderChapterNote').addEventListener('click', () => {
       const ch = state.chapters.find((c) => c.id === state.activeChapterId);
