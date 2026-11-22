@@ -3696,7 +3696,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
       // Attempt 1: Pure unmodified text with safetySettings OFF/BLOCK_NONE
       const data1 = await runWithRateLimitFailover(promptText, systemInstruction, {
-        temperature: options.temperature ?? 0.45
+        temperature: options.temperature ?? 0.45,
+        thinkingBudget: options.thinkingBudget
       });
       const r1 = extractResult(data1);
       const reason1 = r1.promptBlock || r1.finishReason;
@@ -4169,6 +4170,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           '白新羽 = ไป๋ซินอวี่',
           '俞风城 = อวี๋เฟิงเฉิง',
           '俞風城 = อวี๋เฟิงเฉิง',
+          '霍乔 = ฮั่วเฉียว',
+          '霍喬 = ฮั่วเฉียว',
           '简隋英 = เจี่ยนสุยอิง',
           '簡隋英 = เจี่ยนสุยอิง',
           '李玉 = หลี่อวี้',
@@ -4176,7 +4179,22 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           '白慶民 = ไป๋ชิ่งหมิน',
           '李蔚芝 = หลี่เว่ยจือ',
           '邹行 = โจวสิง',
-          '鄒行 = โจวสิง'
+          '鄒行 = โจวสิง',
+          '陈靖 = เฉินจิ้ง',
+          '陳靖 = เฉินจิ้ง',
+          '钱亮 = เฉียนเลี่ยง',
+          '錢亮 = เฉียนเลี่ยง',
+          '冯东元 = เฟิ่งตงหยวน',
+          '馮東元 = เฟิ่งตงหยวน',
+          '巴图 = ปาถู',
+          '巴圖 = ปาถู',
+          '燕少榛 = เยี่ยนเส้าเจิน',
+          '俞泽 = อวี๋เจ๋อ',
+          '俞澤 = อวี๋เจ๋อ',
+          '梁小毛 = เหลียงเสี่ยวเหมา',
+          '刘硕 = หลิวซั่ว',
+          '劉碩 = หลิวซั่ว',
+          '昆仑 = คุนหลุน'
         ].join('\n');
       } else if (title.includes('四面佛')) {
         starter = [
@@ -5541,8 +5559,63 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       box.scrollTop = box.scrollHeight;
     }
 
+    const BUILTIN_BILINGUAL_CHARACTERS = [
+      ['ไป๋ซินอวี่', '白新羽'],
+      ['อวี๋เฟิงเฉิง', '俞风城', '俞風城'],
+      ['ฮั่วเฉียว', '霍乔', '霍喬'],
+      ['เจี่ยนสุยอิง', '简隋英', '簡隋英'],
+      ['หลี่อวี้', '李玉'],
+      ['ไป๋ชิ่งหมิน', '白庆民', '白慶民'],
+      ['หลี่เว่ยจือ', '李蔚芝'],
+      ['โจวสิง', '邹行', '鄒行'],
+      ['เฉินจิ้ง', '陈靖', '陳靖'],
+      ['เฉียนเลี่ยง', '钱亮', '錢亮'],
+      ['เฟิ่งตงหยวน', '冯东元', '馮東元'],
+      ['ปาถู', '巴图', '巴圖'],
+      ['เยี่ยนเส้าเจิน', '燕少榛'],
+      ['อวี๋เจ๋อ', '俞泽', '俞澤'],
+      ['เหลียงเสี่ยวเหมา', '梁小毛'],
+      ['หลิวซั่ว', '刘硕', '劉碩'],
+      ['คุนหลุน', '昆仑', '崑崙'],
+      ['โหยวซูหล่าง', '游书朗', '游書朗'],
+      ['ฝานเซียว', '樊霄'],
+      ['ซูเอ้อร์เหลี่ยง', '苏二两', '蘇二兩']
+    ];
+
+    const BILINGUAL_CONCEPT_MAP = [
+      { triggers: ['โกรธ', 'โมโห', 'เคือง', 'แค้น', 'หงุดหงิด', 'โวย', 'ด่า'], terms: ['โกรธ', 'โมโห', '生气', '生氣', '愤怒', '憤怒', '怒', '火大', '恨', '骂', '罵', '翻脸', '翻臉'] },
+      { triggers: ['ทะเลาะ', 'แตกหัก', 'มีปากเสียง', 'ตัดขาด', 'เลิก', 'งอน'], terms: ['ทะเลาะ', 'แตกหัก', 'เลิก', '吵架', '吵', '争吵', '爭吵', '决裂', '決裂', '绝交', '絕交', '分手', '掰了'] },
+      { triggers: ['ไปจาก', 'จากไป', 'หนี', 'ทิ้ง', 'ปลดประจำการ', 'ลาออก', 'หายไป', 'ย้าย'], terms: ['ไปจาก', 'จากไป', 'หนี', 'ทิ้ง', '离开', '離開', '走了', '走', '滚', '滾', '搬走', '复员', '復員', '退役', '退伍', '躲'] },
+      { triggers: ['โรงแรม', 'เปิดห้อง', 'ห้องพัก', 'รีสอร์ท', 'ค้างคืน', 'เตียง'], terms: ['โรงแรม', 'เปิดห้อง', 'ค้างคืน', '酒店', '宾馆', '賓館', '旅馆', '旅館', '开房', '開房', '房间', '房間', '床'] },
+      { triggers: ['คิดยังไง', 'คิดอย่างไร', 'รู้สึก', 'ความรู้สึก', 'ใจจริง', 'ชอบ', 'รัก', 'เกลียด', 'หึง', 'หวง', 'อิจฉา', 'มอง'], terms: ['คิด', 'รู้สึก', 'ความรู้สึก', 'ชอบ', 'รัก', 'หึง', '觉得', '覺得', '看法', '喜欢', '喜歡', '爱', '愛', '感情', '在意', '吃醋', '讨厌', '討厭', '态度', '態度'] },
+      { triggers: ['บาดเจ็บ', 'เจ็บ', 'โรงพยาบาล', 'หมอ', 'ยิง', 'เลือด', 'ช่วย', 'ตาย', 'อันตราย'], terms: ['บาดเจ็บ', 'โรงพยาบาล', 'ยิง', 'ช่วย', '受伤', '受傷', '伤', '傷', '医院', '醫院', '血', '枪', '槍', '救', '死', '危险', '危險'] },
+      { triggers: ['โกหก', 'หลอก', 'ปิดบัง', 'ความจริง', 'ความลับ', 'จับได้', 'แอบ'], terms: ['โกหก', 'หลอก', 'ความจริง', 'ความลับ', '骗', '騙', '撒谎', '撒謊', '隐瞒', '隱瞞', '真相', '秘密', '瞒', '瞞'] },
+      { triggers: ['จูบ', 'กอด', 'นอนด้วย', 'ลึกซึ้ง', 'บนเตียง'], terms: ['จูบ', 'กอด', '吻', '亲', '親', '抱', '拥抱', '擁抱', '做', '上床'] },
+      { triggers: ['ร้องไห้', 'เสียใจ', 'น้ำตา', 'ผิดหวัง', 'เจ็บปวด'], terms: ['ร้องไห้', 'เสียใจ', 'น้ำตา', '哭', '眼泪', '眼淚', '难过', '難過', '伤心', '傷心', '委屈', '失望', '心痛'] },
+      { triggers: ['ฝึก', 'ทหาร', 'กองทัพ', 'ค่าย', 'ภารกิจ', 'สอบ', 'แข่งขัน', 'ชายแดน'], terms: ['ฝึก', 'ทหาร', 'กองทัพ', 'ภารกิจ', '部队', '部隊', '军', '軍', '训练', '訓練', '演习', '演習', '任务', '任務', '边防', '邊防', '老A'] }
+    ];
+
+    function mergeSynonymGroups(rawGroups) {
+      const merged = [];
+      for (const grp of rawGroups) {
+        const cleanTerms = Array.from(new Set((grp || []).map((t) => String(t || '').trim()).filter(Boolean)));
+        if (cleanTerms.length === 0) continue;
+        const lowerSet = new Set(cleanTerms.map((t) => t.toLowerCase()));
+        const existing = merged.find((m) => m.some((t) => lowerSet.has(t.toLowerCase())));
+        if (existing) {
+          cleanTerms.forEach((t) => {
+            if (!existing.some((et) => et.toLowerCase() === t.toLowerCase())) existing.push(t);
+          });
+        } else {
+          merged.push([...cleanTerms]);
+        }
+      }
+      return merged;
+    }
+
     function parseQuestionRetrievalIntent(question, novel, sortedChapters, selectedMaxOrder = null) {
       const q = String(question || '').trim();
+      const qLower = q.toLowerCase();
       const explicitOrders = new Set();
       let wantsSpoiler = /สปอย|spoil|เฉลย|ตอนจบ|ตอนสุดท้าย|บทส่งท้าย|จบยังไง|ตับพังไหม|แฮปปี้ไหม/i.test(q);
 
@@ -5594,15 +5667,42 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         }
       }
 
-      const kwSet = new Set();
-      const qLower = q.toLowerCase();
+      // Build unified character synonym groups (from novel glossary + built-in character map)
       const glossaryEntries = parseGlossaryEntries(novel?.glossary || '');
+      const allKnownGroupsRaw = [];
       for (const entry of glossaryEntries) {
-        const dstLower = entry.dst.toLowerCase();
-        const srcLower = entry.src.toLowerCase();
-        if ((entry.dst.length >= 2 && qLower.includes(dstLower)) || (entry.src.length >= 1 && qLower.includes(srcLower))) {
-          if (entry.dst.length >= 2) kwSet.add(entry.dst);
-          if (entry.src.length >= 1) kwSet.add(entry.src);
+        allKnownGroupsRaw.push([entry.dst, entry.src]);
+      }
+      for (const builtGrp of BUILTIN_BILINGUAL_CHARACTERS) {
+        allKnownGroupsRaw.push(builtGrp);
+      }
+      const allKnownGroups = mergeSynonymGroups(allKnownGroupsRaw);
+
+      const matchedEntityGroupsRaw = [];
+      for (const grp of allKnownGroups) {
+        if (grp.some((t) => t.length >= 2 && qLower.includes(t.toLowerCase()))) {
+          matchedEntityGroupsRaw.push(grp);
+        }
+      }
+
+      // Support conversational "นายเอก" / "พระเอก" linked to top character groups
+      const leadGroups = allKnownGroups.slice(0, 2);
+      if (/นายเอก|ตัวเอก/.test(q) && leadGroups[0]) {
+        matchedEntityGroupsRaw.push(leadGroups[0]);
+      }
+      if (/พระเอก/.test(q) && leadGroups[1]) {
+        matchedEntityGroupsRaw.push(leadGroups[1]);
+      } else if (/พระเอก/.test(q) && leadGroups[0] && matchedEntityGroupsRaw.length === 0) {
+        matchedEntityGroupsRaw.push(leadGroups[0]);
+      }
+
+      const entityGroups = mergeSynonymGroups(matchedEntityGroupsRaw);
+
+      // Build bilingual event / emotion / place keywords
+      const eventKwSet = new Set();
+      for (const item of BILINGUAL_CONCEPT_MAP) {
+        if (item.triggers.some((trig) => qLower.includes(trig.toLowerCase()))) {
+          item.terms.forEach((term) => eventKwSet.add(term));
         }
       }
 
@@ -5610,7 +5710,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         'ช่วย', 'หน่อย', 'ครับ', 'ค่ะ', 'คะ', 'นะครับ', 'นะคะ', 'นะ', 'คือ', 'อะไร', 'ทำไม',
         'อย่างไร', 'ยังไง', 'บ้าง', 'ไหม', 'รึเปล่า', 'หรือเปล่า', 'ตอนที่', 'บทที่', 'ตอน', 'บท',
         'สปอยล์', 'สปอย', 'spoil', 'spoiler', 'เรื่องนี้', 'ให้ฟัง', 'ให้หน่อย', 'ของ', 'ใน',
-        'ที่', 'กับ', 'เป็น', 'อยู่', 'เกิด', 'บ้างครับ', 'หน่อยครับ', 'แล้ว', 'หรือ', 'ยัง'
+        'ที่', 'กับ', 'เป็น', 'อยู่', 'เกิด', 'บ้างครับ', 'หน่อยครับ', 'แล้ว', 'หรือ', 'ยัง', 'ทั้งคู่', 'ด้วยกัน', 'จน', 'ถึง'
       ]);
       const rawTokens = q
         .replace(/(?:ตอน(?:ที่)?|บท(?:ที่)?|ep\.?|ch(?:apter)?\.?|#|第)\s*\d+(?:\s*(?:-|–|—|ถึง|to|~)\s*\d+)?/gi, ' ')
@@ -5621,46 +5721,144 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       for (const tok of rawTokens) {
         let cleaned = tok.replace(/^(?:เรื่อง|เกี่ยวกับ|ระหว่าง|ของ|ทำไม|สปอยล์|สปอย)/, '').replace(/(?:บ้าง|ไหม|หน่อย|ครับ|ค่ะ|แล้ว)$/, '').trim();
         if (cleaned.length >= 2 && !fillerTokens.has(cleaned.toLowerCase())) {
-          kwSet.add(cleaned);
+          const isAlreadyEntity = entityGroups.some((g) => g.some((gt) => gt.toLowerCase() === cleaned.toLowerCase()));
+          if (!isAlreadyEntity) eventKwSet.add(cleaned);
         }
       }
+
+      const allKws = new Set();
+      entityGroups.forEach((g) => g.forEach((t) => allKws.add(t)));
+      eventKwSet.forEach((t) => allKws.add(t));
 
       return {
         explicitOrders,
         wantsSpoiler,
-        keywords: Array.from(kwSet).slice(0, 18)
+        entityGroups,
+        eventKeywords: Array.from(eventKwSet),
+        keywords: Array.from(allKws)
       };
     }
 
-    function extractRelevantChapterExcerpts(ch, keywords, maxChars = 6500) {
+    async function expandQuestionBilingualViaAi(question, novel, baseIntent) {
+      if (!String(state.translator.geminiApiKey || '').trim()) return baseIntent;
+      try {
+        const glossaryHint = String(novel?.glossary || '').trim().slice(0, 1200);
+        const prompt = [
+          `คำถามของผู้อ่าน: "${question}"`,
+          glossaryHint ? `สมุดคำศัพท์ที่มี:\n${glossaryHint}` : '',
+          'ช่วยถอดชื่อตัวละคร (เช่น ชื่อไทยคู่กับอักษรจีนตัวย่อและตัวเต็ม) และคำสำคัญเกี่ยวกับเหตุการณ์/อารมณ์/สถานที่ในคำถามนี้ เป็นคำค้น 2 ภาษา (ไทย + จีน) สำหรับค้นหาในนิยายต้นฉบับ',
+          'ตอบกลับเป็น JSON รูปแบบเดียวเท่านั้น: {"entities":[["ชื่อไทย","ชื่อจีนย่อ","ชื่อจีนเต็ม"]],"events":["คำไทย","คำจีนย่อ","คำจีนเต็ม"]}'
+        ].filter(Boolean).join('\n\n');
+
+        const aiPromise = callGeminiApi(
+          prompt,
+          'คุณคือผู้ช่วยแตกคำค้นหา 2 ภาษา (ไทย-จีน) ตอบกลับเฉพาะ JSON ที่ถูกต้องเท่านั้น ไม่ต้องอธิบาย',
+          { temperature: 0.2, thinkingBudget: 0, skipSoftRetry: true }
+        );
+        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('EXPAND_TIMEOUT')), 4000));
+        const rawReply = await Promise.race([aiPromise, timeoutPromise]);
+
+        const jsonMatch = String(rawReply || '').match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return baseIntent;
+        const parsed = JSON.parse(jsonMatch[0]);
+
+        const extraEntities = Array.isArray(parsed.entities)
+          ? parsed.entities.filter((g) => Array.isArray(g) && g.length > 0)
+          : [];
+        const extraEvents = Array.isArray(parsed.events)
+          ? parsed.events.map((e) => String(e || '').trim()).filter((e) => e.length >= 1)
+          : [];
+
+        const mergedEntities = mergeSynonymGroups([...baseIntent.entityGroups, ...extraEntities]);
+        const mergedEvents = Array.from(new Set([...baseIntent.eventKeywords, ...extraEvents])).slice(0, 35);
+        const mergedKws = new Set([...baseIntent.keywords]);
+        mergedEntities.forEach((g) => g.forEach((t) => mergedKws.add(t)));
+        mergedEvents.forEach((t) => mergedKws.add(t));
+
+        return {
+          ...baseIntent,
+          entityGroups: mergedEntities,
+          eventKeywords: mergedEvents,
+          keywords: Array.from(mergedKws)
+        };
+      } catch (err) {
+        return baseIntent;
+      }
+    }
+
+    function extractRelevantChapterExcerpts(ch, keywords, maxChars = 6500, entityGroups = [], eventKeywords = []) {
       const th = String(ch?.translatedContent || '').trim();
       const orig = String(ch?.content || '').trim();
       const fullText = th || orig;
       if (!fullText) return '';
-      if (fullText.length <= maxChars || !Array.isArray(keywords) || keywords.length === 0) {
-        return fullText.slice(0, maxChars);
-      }
+      if (fullText.length <= maxChars) return fullText;
+
+      const hasEntities = Array.isArray(entityGroups) && entityGroups.length > 0;
+      const hasEvents = Array.isArray(eventKeywords) && eventKeywords.length > 0;
+      const hasKws = Array.isArray(keywords) && keywords.length > 0;
+      if (!hasEntities && !hasEvents && !hasKws) return fullText.slice(0, maxChars);
 
       const paras = fullText.replace(/\r\n/g, '\n').split(/\n+/).map((p) => p.trim()).filter(Boolean);
       if (paras.length === 0) return fullText.slice(0, maxChars);
 
-      const lowerKws = keywords.map((k) => k.toLowerCase());
-      const scored = paras.map((p, idx) => {
-        const pl = p.toLowerCase();
-        let hits = 0;
-        for (const kw of lowerKws) {
-          if (pl.includes(kw)) hits += 1;
+      const lowerParas = paras.map((p) => p.toLowerCase());
+      const paraEntityFlags = lowerParas.map((pl) =>
+        entityGroups.map((grp) => grp.some((t) => pl.includes(t.toLowerCase())))
+      );
+      const lowerEvents = (eventKeywords || []).map((k) => k.toLowerCase());
+      const lowerGeneral = (keywords || []).map((k) => k.toLowerCase());
+
+      const scored = [];
+      for (let i = 0; i < paras.length; i++) {
+        let score = 0;
+        let entitiesInPara = 0;
+        let entitiesInWindow = 0;
+
+        for (let gIdx = 0; gIdx < entityGroups.length; gIdx++) {
+          const inSelf = paraEntityFlags[i][gIdx];
+          const inAdj = (i > 0 && paraEntityFlags[i - 1][gIdx]) || (i + 1 < paras.length && paraEntityFlags[i + 1][gIdx]);
+          if (inSelf) {
+            score += 6;
+            entitiesInPara++;
+          } else if (inAdj) {
+            score += 3;
+          }
+          if (inSelf || inAdj) entitiesInWindow++;
         }
-        return { idx, hits };
-      }).filter((x) => x.hits > 0);
+
+        if (entityGroups.length >= 2) {
+          if (entitiesInPara === entityGroups.length) score += 35;
+          else if (entitiesInWindow === entityGroups.length) score += 25;
+        }
+
+        const pl = lowerParas[i];
+        let eventHits = 0;
+        for (const ev of lowerEvents) {
+          if (pl.includes(ev)) {
+            score += 8;
+            eventHits++;
+          }
+        }
+        if (entitiesInWindow > 0 && eventHits > 0) {
+          score += 15;
+        }
+
+        if (!hasEntities && !hasEvents) {
+          for (const kw of lowerGeneral) {
+            if (pl.includes(kw)) score += 2;
+          }
+        }
+
+        if (score > 0) scored.push({ idx: i, score });
+      }
 
       if (scored.length === 0) {
         return fullText.slice(0, maxChars);
       }
 
-      scored.sort((a, b) => b.hits - a.hits || a.idx - b.idx);
+      scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
       const keepIdx = new Set();
-      for (const center of scored.slice(0, 6)) {
+      for (const center of scored.slice(0, 8)) {
         for (let j = Math.max(0, center.idx - 2); j <= Math.min(paras.length - 1, center.idx + 2); j++) {
           keepIdx.add(j);
         }
@@ -5693,7 +5891,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       unlimited: { totalBudget: Infinity, explicitCap: Infinity, keywordTop: 20, keywordCap: Infinity, overviewBudget: Infinity }
     };
 
-    function buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoilerChecked, depthMode = 'deep') {
+    function buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoilerChecked, depthMode = 'deep', preExpandedIntent = null) {
       const sortedAll = getSortedChaptersAsc();
       if (!novel || sortedAll.length === 0) {
         return {
@@ -5706,7 +5904,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
       const cfg = CHAT_CONTEXT_DEPTH_CONFIG[depthMode] || CHAT_CONTEXT_DEPTH_CONFIG.deep;
       const isUnlimited = depthMode === 'unlimited';
-      const intent = parseQuestionRetrievalIntent(question, novel, sortedAll, noSpoilerChecked ? selectedMaxOrder : null);
+      const intent = preExpandedIntent || parseQuestionRetrievalIntent(question, novel, sortedAll, noSpoilerChecked ? selectedMaxOrder : null);
       const autoUnlockedSpoiler = Boolean(noSpoilerChecked && intent.wantsSpoiler);
       const effectiveMaxOrder = (noSpoilerChecked && !intent.wantsSpoiler) ? selectedMaxOrder : null;
       const allowed = sortedAll.filter((c) => effectiveMaxOrder == null || Number(c.order) <= Number(effectiveMaxOrder));
@@ -5716,48 +5914,150 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const usedIds = new Set();
       let remainingBudget = cfg.totalBudget;
 
-      // Pass A: Explicit chapter numbers/ranges/ending requested directly by the user
-      for (const ch of allowed) {
+      // Pass A: Explicit chapters + adjacent N-1 tail & N+1 head for narrative continuity
+      for (let i = 0; i < allowed.length; i++) {
+        const ch = allowed[i];
         if (!intent.explicitOrders.has(Number(ch.order))) continue;
         if (!isUnlimited && remainingBudget < 500) break;
+
         const label = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
         matchedChapterLabels.push(label);
         usedIds.add(ch.id);
+
         if (!isUnlimited) {
           const perCap = Math.min(cfg.explicitCap, remainingBudget);
           const noteStr = String(ch.note || '').trim();
-          const thStr = String(ch.translatedContent || '').trim();
-          const origStr = String(ch.content || '').trim();
-          const bodyText = (thStr || origStr).slice(0, perCap);
+          const bodyText = (String(ch.translatedContent || '').trim() || String(ch.content || '').trim()).slice(0, perCap);
           const block = `[ตอนที่ถูกอ้างถึงโดยตรง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nเนื้อหาเต็ม/ตัดตอน:\n${bodyText || '(ยังไม่มีเนื้อหาในตอนนี้)'}`;
           blocks.push(block);
           remainingBudget -= block.length;
+
+          // Pull previous chapter tail (#N-1) if not already an explicit target
+          const prevCh = i > 0 ? allowed[i - 1] : null;
+          if (prevCh && !intent.explicitOrders.has(Number(prevCh.order)) && !usedIds.has(prevCh.id) && remainingBudget > 1800) {
+            const prevRaw = String(prevCh.translatedContent || '').trim() || String(prevCh.content || '').trim();
+            if (prevRaw) {
+              const prevTail = prevRaw.slice(-2800);
+              const prevLabel = `#${Number(prevCh.order)} ${prevCh.translatedTitle || prevCh.title}`;
+              const prevBlock = `[รอยต่อก่อนหน้า: ${prevLabel} (ช่วงท้ายตอนก่อนเข้าเหตุการณ์)]\n${prevTail}`;
+              blocks.push(prevBlock);
+              matchedChapterLabels.push(`${prevLabel} (ท้ายตอน)`);
+              usedIds.add(prevCh.id);
+              remainingBudget -= prevBlock.length;
+            }
+          }
+
+          // Pull next chapter head (#N+1) if not already an explicit target
+          const nextCh = i + 1 < allowed.length ? allowed[i + 1] : null;
+          if (nextCh && !intent.explicitOrders.has(Number(nextCh.order)) && !usedIds.has(nextCh.id) && remainingBudget > 1800) {
+            const nextRaw = String(nextCh.translatedContent || '').trim() || String(nextCh.content || '').trim();
+            if (nextRaw) {
+              const nextHead = nextRaw.slice(0, 2800);
+              const nextLabel = `#${Number(nextCh.order)} ${nextCh.translatedTitle || nextCh.title}`;
+              const nextBlock = `[รอยต่อถัดไป: ${nextLabel} (ช่วงต้นตอนหลังเกิดเหตุการณ์)]\n${nextHead}`;
+              blocks.push(nextBlock);
+              matchedChapterLabels.push(`${nextLabel} (ต้นตอน)`);
+              usedIds.add(nextCh.id);
+              remainingBudget -= nextBlock.length;
+            }
+          }
         }
       }
 
-      // Pass B: Bilingual keyword & glossary hit retrieval across allowed chapters
-      if (intent.keywords.length > 0 && (isUnlimited || remainingBudget > 1500)) {
-        const lowerKws = intent.keywords.map((k) => k.toLowerCase());
+      // Pass B: IDF-weighted Character Co-occurrence + Bilingual Event Scoring across allowed chapters
+      const hasEntities = intent.entityGroups.length > 0;
+      const hasEvents = intent.eventKeywords.length > 0;
+      if ((hasEntities || hasEvents || intent.keywords.length > 0) && (isUnlimited || remainingBudget > 1500)) {
+        const chapterCache = allowed.map((ch) => ({
+          ch,
+          titleNote: `${ch.translatedTitle || ''} ${ch.title || ''} ${ch.note || ''}`.toLowerCase(),
+          bodyLower: `${ch.translatedContent || ''}\n${ch.content || ''}`.toLowerCase()
+        }));
+
+        // Document frequency (IDF) for queried character groups so rare supporting characters outweigh leads appearing everywhere
+        const groupDf = intent.entityGroups.map((grp) => {
+          const lowerTerms = grp.map((t) => t.toLowerCase());
+          let df = 0;
+          for (const item of chapterCache) {
+            if (lowerTerms.some((t) => item.titleNote.includes(t) || item.bodyLower.includes(t))) df++;
+          }
+          return df;
+        });
+        const idfWeights = groupDf.map((df) =>
+          Math.max(1, Math.round(Math.log2((allowed.length + 1) / (df + 1)) * 3))
+        );
+
+        const lowerEvents = intent.eventKeywords.map((k) => k.toLowerCase());
         const scoredChapters = [];
-        for (const ch of allowed) {
-          if (usedIds.has(ch.id)) continue;
-          const titleNote = `${ch.translatedTitle || ''} ${ch.title || ''} ${ch.note || ''}`.toLowerCase();
-          const bodyCombined = `${ch.translatedContent || ''}\n${ch.content || ''}`.toLowerCase();
+
+        for (const item of chapterCache) {
+          if (usedIds.has(item.ch.id)) continue;
           let score = 0;
-          for (const kw of lowerKws) {
-            if (titleNote.includes(kw)) score += 5;
-            if (bodyCombined.includes(kw)) {
-              score += 2;
-              const occ = bodyCombined.split(kw).length - 1;
-              score += Math.min(4, occ - 1);
+          let matchedGroupCount = 0;
+
+          const matchedGroupsInChap = [];
+          for (let gIdx = 0; gIdx < intent.entityGroups.length; gIdx++) {
+            const lowerTerms = intent.entityGroups[gIdx].map((t) => t.toLowerCase());
+            const inTitle = lowerTerms.some((t) => item.titleNote.includes(t));
+            const inBody = lowerTerms.some((t) => item.bodyLower.includes(t));
+            matchedGroupsInChap.push(inTitle || inBody);
+            if (inTitle || inBody) {
+              matchedGroupCount++;
+              score += (inTitle ? 4 : 2) * idfWeights[gIdx];
             }
           }
+
+          let matchedEventsInChap = 0;
+          for (const ev of lowerEvents) {
+            if (item.titleNote.includes(ev)) {
+              score += 14;
+              matchedEventsInChap++;
+            } else if (item.bodyLower.includes(ev)) {
+              score += 10;
+              matchedEventsInChap++;
+            }
+          }
+
+          // Paragraph-level co-occurrence check when multiple entities or entities + events exist
+          if ((matchedGroupCount >= 2 || (matchedGroupCount >= 1 && matchedEventsInChap >= 1)) && item.bodyLower) {
+            const pLowers = item.bodyLower.split(/\n+/).filter(Boolean);
+            let allEntitiesCoCount = 0;
+            let entityEventCoCount = 0;
+            for (let pIdx = 0; pIdx < pLowers.length; pIdx++) {
+              const pWin = pLowers[pIdx] + '\n' + (pLowers[pIdx + 1] || '');
+              const entHitCount = intent.entityGroups.reduce((acc, grp) =>
+                acc + (grp.some((t) => pWin.includes(t.toLowerCase())) ? 1 : 0), 0);
+              const hasEvInPara = lowerEvents.some((ev) => pLowers[pIdx].includes(ev));
+
+              if (intent.entityGroups.length >= 2 && entHitCount === intent.entityGroups.length) {
+                allEntitiesCoCount++;
+              }
+              if (entHitCount >= 1 && hasEvInPara) {
+                entityEventCoCount++;
+              }
+            }
+            if (allEntitiesCoCount > 0) {
+              score += Math.min(200, allEntitiesCoCount * 40);
+            }
+            if (entityEventCoCount > 0) {
+              score += Math.min(150, entityEventCoCount * 25);
+            }
+          }
+
+          if (intent.entityGroups.length >= 2) {
+            if (matchedGroupCount === intent.entityGroups.length) score += 120;
+            else if (matchedGroupCount === 1) score = Math.max(1, score - 50);
+          }
+
           if (score > 0) {
-            scoredChapters.push({ ch, score });
+            scoredChapters.push({ ch: item.ch, score, matchedGroupCount });
           }
         }
 
-        scoredChapters.sort((a, b) => b.score - a.score || Number(a.ch.order) - Number(b.ch.order));
+        scoredChapters.sort((a, b) =>
+          b.score - a.score || b.matchedGroupCount - a.matchedGroupCount || Number(a.ch.order) - Number(b.ch.order)
+        );
+
         for (const item of scoredChapters.slice(0, cfg.keywordTop)) {
           if (!isUnlimited && remainingBudget < 800) break;
           const ch = item.ch;
@@ -5766,10 +6066,16 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           usedIds.add(ch.id);
           if (!isUnlimited) {
             const perCap = Math.min(cfg.keywordCap, remainingBudget);
-            const excerpt = extractRelevantChapterExcerpts(ch, intent.keywords, perCap);
+            const excerpt = extractRelevantChapterExcerpts(
+              ch,
+              intent.keywords,
+              perCap,
+              intent.entityGroups,
+              intent.eventKeywords
+            );
             if (!excerpt) continue;
             const noteStr = String(ch.note || '').trim();
-            const block = `[ตอนที่พบคำค้นที่เกี่ยวข้อง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nช่วงเนื้อหาที่ตรงคำถาม:\n${excerpt}`;
+            const block = `[ตอนที่พบฉากที่เกี่ยวข้อง: ${label}]${noteStr ? `\nเรื่องย่อ/โน้ต: ${noteStr}` : ''}\nช่วงเนื้อหาที่ตรงคำถาม:\n${excerpt}`;
             blocks.push(block);
             remainingBudget -= block.length;
           }
@@ -5805,6 +6111,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const noSpoiler = $('chkChatNoSpoiler').checked;
       const selectedMaxOrder = noSpoiler && state.chapters.length > 0 ? Number($('selectChatMaxOrder').value) : null;
       const requestedDepth = $('selectChatContextDepth')?.value || 'deep';
+      const sortedChapters = getSortedChaptersAsc();
+      const baseIntent = parseQuestionRetrievalIntent(question, novel, sortedChapters, noSpoiler ? selectedMaxOrder : null);
+      const expandedIntent = (requestedDepth !== 'unlimited' && sortedChapters.length > 0)
+        ? await expandQuestionBilingualViaAi(question, novel, baseIntent)
+        : baseIntent;
 
       const executeChatForDepth = async (depthMode) => {
         const cfg = CHAT_CONTEXT_DEPTH_CONFIG[depthMode] || CHAT_CONTEXT_DEPTH_CONFIG.deep;
@@ -5813,7 +6124,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           matchedChapterLabels,
           autoUnlockedSpoiler,
           effectiveMaxOrder
-        } = buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoiler, depthMode);
+        } = buildSmartQuestionRetrievedBlocks(novel, question, selectedMaxOrder, noSpoiler, depthMode, expandedIntent);
 
         const ctx = buildNovelContextUpTo(novel, effectiveMaxOrder, cfg.overviewBudget, effectiveMaxOrder == null);
         const recentTurns = state.novelChatHistory
