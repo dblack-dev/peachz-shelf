@@ -614,6 +614,9 @@
                 <option value="gemini">🤖 เสียง AI นักพากย์ (Gemini)</option>
                 <option value="browser">💻 เสียงไทยในเบราว์เซอร์ (ฟรี)</option>
               </select>
+              <select id="selectTtsModelQuick" title="เลือกโมเดลเสียง AI (ไม่ล็อกโมเดล)"
+                class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-mono text-app-main focus:outline-none max-w-[200px] truncate">
+              </select>
               <select id="selectTtsVoice" title="เลือกเสียงนักพากย์ / เสียงอ่าน"
                 class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-medium text-app-main focus:outline-none max-w-[230px] truncate">
               </select>
@@ -1046,6 +1049,33 @@
           <div class="space-y-1.5">
             <div class="text-[11px] font-semibold text-app-sub">โมเดลที่จดจำไว้ (คลิกเพื่อเลือกใช้ทันที):</div>
             <div id="savedModelsChips" class="flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+
+        <!-- Section B2: Free-form TTS Model + Saved TTS Models + Live TTS Discovery -->
+        <div class="p-4 rounded-2xl bg-app-subtle/60 border border-app space-y-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="font-bold text-app-main">🎙️ โมเดลเสียง AI อ่านนิยาย / TTS (ไม่ล็อกโมเดล ใช้ตัวใหม่ได้เสมอ)</label>
+            <button id="btnFetchLiveTtsModels" type="button"
+              class="px-2.5 py-1 rounded-lg bg-app-surface border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
+              🔄 ดึงรายชื่อโมเดลเสียงจาก API
+            </button>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <input id="inputGeminiTtsModel" type="text" maxlength="200" placeholder="เช่น gemini-2.5-flash-preview-tts, gemini-2.5-pro-preview-tts"
+              class="flex-1 px-3.5 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <button id="btnRememberTtsModel" type="button"
+              class="px-3.5 py-2 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:opacity-90 shrink-0 transition">
+              ⭐ จำโมเดลเสียงนี้
+            </button>
+          </div>
+          <div id="fetchedTtsModelsWrap" class="hidden space-y-1">
+            <div class="text-[11px] font-semibold text-app-accent">โมเดลเสียง TTS ที่คีย์นี้ใช้งานได้ (คลิกเลือกเพื่อใส่ด้านบน):</div>
+            <select id="selectFetchedTtsModel" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-xs font-mono text-app-main focus:outline-none"></select>
+          </div>
+          <div class="space-y-1.5">
+            <div class="text-[11px] font-semibold text-app-sub">โมเดลเสียงที่จดจำไว้ (คลิกเพื่อเลือกใช้ทันที):</div>
+            <div id="savedTtsModelsChips" class="flex flex-wrap gap-1.5"></div>
           </div>
         </div>
 
@@ -1538,6 +1568,7 @@
       draftSavedKeys: [],
       draftActiveKeyId: '',
       draftSavedModels: [],
+      draftSavedTtsModels: [],
       translator: {
         geminiApiKey: '',
         activeKeyId: '',
@@ -1545,6 +1576,8 @@
         savedKeys: [],
         geminiModel: 'gemini-2.5-flash',
         savedModels: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-3-flash-preview', 'gemini-3-pro-preview'],
+        ttsModel: 'gemini-2.5-flash-preview-tts',
+        savedTtsModels: ['gemini-2.5-flash-preview-tts', 'gemini-2.5-pro-preview-tts'],
         thinkingLevel: 'auto',
         thinkingBudget: 4096,
         defaultStyle: DEFAULT_TRANS_STYLE
@@ -1691,6 +1724,13 @@
       'gemini-3-flash-preview',
       'gemini-3-pro-preview'
     ];
+    const DEFAULT_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+    const DEFAULT_SAVED_TTS_MODELS = [
+      'gemini-2.5-flash-preview-tts',
+      'gemini-2.5-pro-preview-tts'
+    ];
+    const TTS_ACTIVE_MODEL_TAG = '__tts_active__:';
+    const TTS_SAVED_MODEL_TAG = '__tts_saved__:';
 
     function normalizeTranslatorState(raw = {}) {
       let savedKeys = [];
@@ -1724,16 +1764,38 @@
       const geminiApiKey = activeKeyObj ? activeKeyObj.key : legacyKey;
 
       let savedModels = [...DEFAULT_SAVED_MODELS];
+      let ttsActiveFromJson = '';
+      const ttsSavedFromJson = [];
       try {
         const parsedModels = typeof raw.savedModelsJson === 'string'
           ? JSON.parse(raw.savedModelsJson)
           : (Array.isArray(raw.savedModels) ? raw.savedModels : null);
-        if (Array.isArray(parsedModels) && parsedModels.length > 0) {
-          savedModels = Array.from(new Set(parsedModels.map((m) => String(m || '').trim().slice(0, 200)).filter(Boolean)));
+        if (Array.isArray(parsedModels)) {
+          const plainModels = [];
+          parsedModels.forEach((entry) => {
+            const s = String(entry || '').trim();
+            if (!s) return;
+            if (s.startsWith(TTS_ACTIVE_MODEL_TAG)) {
+              ttsActiveFromJson = s.slice(TTS_ACTIVE_MODEL_TAG.length).trim();
+            } else if (s.startsWith(TTS_SAVED_MODEL_TAG)) {
+              const tm = s.slice(TTS_SAVED_MODEL_TAG.length).trim().slice(0, 200);
+              if (tm) ttsSavedFromJson.push(tm);
+            } else {
+              plainModels.push(s.slice(0, 200));
+            }
+          });
+          if (plainModels.length > 0) {
+            savedModels = Array.from(new Set(plainModels));
+          }
         }
       } catch (e) {}
 
       const geminiModel = (String(raw.geminiModel || '').trim() || 'gemini-2.5-flash').slice(0, 200);
+      const ttsModel = (String(raw.ttsModel || ttsActiveFromJson || '').trim().replace(/^models\//, '') || DEFAULT_TTS_MODEL).slice(0, 200);
+      const rawTtsSaved = Array.isArray(raw.savedTtsModels) && raw.savedTtsModels.length > 0
+        ? raw.savedTtsModels
+        : (ttsSavedFromJson.length > 0 ? ttsSavedFromJson : DEFAULT_SAVED_TTS_MODELS);
+      const savedTtsModels = Array.from(new Set(rawTtsSaved.map((m) => String(m || '').trim().replace(/^models\//, '').slice(0, 200)).filter(Boolean)));
       const rawThinking = String(raw.thinkingLevel || 'auto').trim().slice(0, 50);
       const lowerThinking = rawThinking.toLowerCase();
       let thinkingLevel = rawThinking || 'auto';
@@ -1752,6 +1814,8 @@
         savedKeys,
         geminiModel,
         savedModels,
+        ttsModel,
+        savedTtsModels,
         thinkingLevel,
         thinkingBudget,
         defaultStyle
@@ -1876,8 +1940,15 @@
         localStorage.setItem(TRANS_LOCAL_KEY, JSON.stringify(normalized));
       } catch (e) {}
       renderTranslatorStatusBadges();
+      populateTtsModelQuickSelect();
+      if (state.ttsOpen) setTtsStatusText();
 
       if (state.user) {
+        const packedModels = [
+          ...normalized.savedModels,
+          `${TTS_ACTIVE_MODEL_TAG}${normalized.ttsModel}`,
+          ...normalized.savedTtsModels.map((m) => `${TTS_SAVED_MODEL_TAG}${m}`)
+        ];
         const payload = {
           geminiApiKey: normalized.geminiApiKey,
           geminiModel: normalized.geminiModel,
@@ -1885,7 +1956,7 @@
           activeKeyId: normalized.activeKeyId,
           activeKeyName: normalized.activeKeyName,
           savedKeysJson: JSON.stringify(normalized.savedKeys).slice(0, 50000),
-          savedModelsJson: JSON.stringify(normalized.savedModels).slice(0, 20000),
+          savedModelsJson: JSON.stringify(packedModels).slice(0, 20000),
           thinkingLevel: normalized.thinkingLevel,
           thinkingBudget: normalized.thinkingBudget,
           updatedAt: Date.now()
@@ -3659,17 +3730,23 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
     const sanitizeTextForAiFilter = obfuscateTriggerTokensZeroLoss;
 
-    async function callGeminiApi(promptText, systemInstruction = '', options = {}) {
+    function getGeminiKeyPool() {
       const primaryKey = String(state.translator.geminiApiKey || '').trim();
-      if (!primaryKey) {
-        throw new Error('MISSING_GEMINI_KEY');
-      }
+      if (!primaryKey) return [];
       const keyPool = [primaryKey];
       if (Array.isArray(state.translator.savedKeys)) {
         state.translator.savedKeys.forEach((k) => {
           const val = String(k?.key || '').trim();
           if (val && !keyPool.includes(val)) keyPool.push(val);
         });
+      }
+      return keyPool;
+    }
+
+    async function callGeminiApi(promptText, systemInstruction = '', options = {}) {
+      const keyPool = getGeminiKeyPool();
+      if (keyPool.length === 0) {
+        throw new Error('MISSING_GEMINI_KEY');
       }
 
       let model = (String(state.translator.geminiModel || '').trim() || 'gemini-2.5-flash').replace(/^models\//, '');
@@ -4153,11 +4230,15 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return true;
     }
 
-    function renderSavedModelsChips() {
-      const box = $('savedModelsChips');
-      const currentVal = $('inputGeminiModel').value.trim();
+    let liveDiscoveredTtsModels = [];
+
+    function renderModelChipsList({ boxId, inputId, listKey, onPick }) {
+      const box = $(boxId);
+      const inp = $(inputId);
+      if (!box || !inp) return;
+      const currentVal = inp.value.trim();
       box.innerHTML = '';
-      state.draftSavedModels.forEach((m) => {
+      (state[listKey] || []).forEach((m) => {
         const active = m === currentVal;
         const wrap = document.createElement('div');
         wrap.className = `inline-flex items-center rounded-xl border text-[11px] font-mono overflow-hidden ${
@@ -4168,10 +4249,9 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         pickBtn.className = 'px-2.5 py-1 font-semibold hover:opacity-85';
         pickBtn.textContent = m;
         pickBtn.addEventListener('click', () => {
-          $('inputGeminiModel').value = m;
-          renderSavedModelsChips();
-          updateAiStudioThinkingHint(m);
-          syncModelThinkingMetadata(m);
+          inp.value = m;
+          renderModelChipsList({ boxId, inputId, listKey, onPick });
+          if (typeof onPick === 'function') onPick(m);
         });
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -4179,11 +4259,31 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         delBtn.title = 'ลบออกจากรายการจำ';
         delBtn.textContent = '✕';
         delBtn.addEventListener('click', () => {
-          state.draftSavedModels = state.draftSavedModels.filter((item) => item !== m);
-          renderSavedModelsChips();
+          state[listKey] = (state[listKey] || []).filter((item) => item !== m);
+          renderModelChipsList({ boxId, inputId, listKey, onPick });
         });
         wrap.append(pickBtn, delBtn);
         box.appendChild(wrap);
+      });
+    }
+
+    function renderSavedModelsChips() {
+      renderModelChipsList({
+        boxId: 'savedModelsChips',
+        inputId: 'inputGeminiModel',
+        listKey: 'draftSavedModels',
+        onPick: (m) => {
+          updateAiStudioThinkingHint(m);
+          syncModelThinkingMetadata(m);
+        }
+      });
+    }
+
+    function renderSavedTtsModelsChips() {
+      renderModelChipsList({
+        boxId: 'savedTtsModelsChips',
+        inputId: 'inputGeminiTtsModel',
+        listKey: 'draftSavedTtsModels'
       });
     }
 
@@ -4246,6 +4346,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       state.draftSavedKeys = state.translator.savedKeys.map((k) => ({ ...k }));
       state.draftActiveKeyId = state.translator.activeKeyId || state.draftSavedKeys[0]?.id || '';
       state.draftSavedModels = [...(state.translator.savedModels || DEFAULT_SAVED_MODELS)];
+      state.draftSavedTtsModels = [...(state.translator.savedTtsModels || DEFAULT_SAVED_TTS_MODELS)];
       resetKeyEditForm();
       renderSavedKeysUI();
 
@@ -4253,6 +4354,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       $('inputGeminiModel').value = activeModel;
       renderSavedModelsChips();
       $('fetchedModelsWrap').classList.add('hidden');
+
+      $('inputGeminiTtsModel').value = getActiveTtsModel();
+      renderSavedTtsModelsChips();
+      $('fetchedTtsModelsWrap').classList.add('hidden');
 
       const curLvl = String(state.translator.thinkingLevel || 'auto').trim() || 'auto';
       const curLower = curLvl.toLowerCase();
@@ -4280,9 +4385,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         showToast('กรุณาเลือกหรือกรอก Gemini API Key ก่อนดึงรายชื่อโมเดลครับ');
         return;
       }
-      const btn = $('btnFetchLiveModels');
-      btn.disabled = true;
-      btn.textContent = 'กำลังดึง...';
+      const btnText = $('btnFetchLiveModels');
+      const btnTts = $('btnFetchLiveTtsModels');
+      if (btnText) { btnText.disabled = true; btnText.textContent = 'กำลังดึง...'; }
+      if (btnTts) { btnTts.disabled = true; btnTts.textContent = 'กำลังดึง...'; }
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
         const data = await res.json().catch(() => ({}));
@@ -4299,10 +4405,14 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
             });
           }
         });
-        const models = rawModels
+        const genEntries = rawModels
           .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-          .map((m) => String(m.name || '').replace(/^models\//, ''))
-          .filter(Boolean);
+          .map((m) => ({
+            id: String(m.name || '').replace(/^models\//, ''),
+            desc: `${m.name || ''} ${m.displayName || ''} ${m.description || ''}`
+          }))
+          .filter((m) => m.id);
+        const models = genEntries.map((m) => m.id);
         if (!models.length) {
           showToast('ไม่พบโมเดล generateContent จากคีย์นี้');
           return;
@@ -4311,13 +4421,34 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         sel.innerHTML = '<option value="">-- คลิกเลือกโมเดลจากรายการสด (' + models.length + ' รุ่น) --</option>' +
           models.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
         $('fetchedModelsWrap').classList.remove('hidden');
+
+        const ttsMatches = genEntries.filter((m) => /tts|speech|audio/i.test(m.desc)).map((m) => m.id);
+        const otherModels = models.filter((id) => !ttsMatches.includes(id));
+        liveDiscoveredTtsModels = ttsMatches;
+        const ttsSel = $('selectFetchedTtsModel');
+        if (ttsSel) {
+          let ttsOpts = '<option value="">-- คลิกเลือกโมเดลเสียง TTS (' + (ttsMatches.length || models.length) + ' รุ่น) --</option>';
+          if (ttsMatches.length > 0) {
+            ttsOpts += '<optgroup label="🎙️ โมเดลเสียง / TTS">' +
+              ttsMatches.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('') +
+              '</optgroup>';
+          }
+          if (otherModels.length > 0) {
+            ttsOpts += '<optgroup label="โมเดล generateContent อื่นๆ">' +
+              otherModels.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('') +
+              '</optgroup>';
+          }
+          ttsSel.innerHTML = ttsOpts;
+          $('fetchedTtsModelsWrap').classList.remove('hidden');
+        }
+        populateTtsModelQuickSelect();
         updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
-        showToast(`พบ ${models.length} โมเดลและซิงก์ข้อมูลจาก AI Studio แล้ว`);
+        showToast(`พบ ${models.length} โมเดล (TTS ${ttsMatches.length} รุ่น) และซิงก์จาก AI Studio แล้ว`);
       } catch (err) {
         showToast('ดึงรายชื่อโมเดลไม่สำเร็จ: ' + (err?.message || 'ผิดพลาด'));
       } finally {
-        btn.disabled = false;
-        btn.textContent = '🔄 ดึงรายชื่อโมเดลล่าสุดจาก API';
+        if (btnText) { btnText.disabled = false; btnText.textContent = '🔄 ดึงรายชื่อโมเดลล่าสุดจาก API'; }
+        if (btnTts) { btnTts.disabled = false; btnTts.textContent = '🔄 ดึงรายชื่อโมเดลเสียงจาก API'; }
       }
     }
 
@@ -4989,21 +5120,30 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
     $('btnAddOrUpdateKey').addEventListener('click', addOrUpdateDraftKey);
     $('btnCancelKeyEdit').addEventListener('click', resetKeyEditForm);
+    function rememberDraftModel({ inputId, listKey, onRender, emptyMsg }) {
+      const m = $(inputId).value.trim().replace(/^models\//, '').slice(0, 200);
+      if (!m) {
+        showToast(emptyMsg);
+        return;
+      }
+      if (!state[listKey].includes(m)) {
+        state[listKey].unshift(m);
+      }
+      onRender();
+      showToast(`จำโมเดล "${m}" ไว้ในรายการแล้ว (อย่าลืมกดบันทึกด้านล่าง)`);
+    }
+
     $('inputGeminiModel').addEventListener('input', () => {
       renderSavedModelsChips();
       updateAiStudioThinkingHint($('inputGeminiModel').value.trim());
     });
     $('btnRememberModel').addEventListener('click', () => {
-      const m = $('inputGeminiModel').value.trim().slice(0, 200);
-      if (!m) {
-        showToast('กรุณาพิมพ์ชื่อโมเดลก่อนครับ');
-        return;
-      }
-      if (!state.draftSavedModels.includes(m)) {
-        state.draftSavedModels.unshift(m);
-      }
-      renderSavedModelsChips();
-      showToast(`จำโมเดล "${m}" ไว้ในรายการแล้ว (อย่าลืมกดบันทึกด้านล่าง)`);
+      rememberDraftModel({
+        inputId: 'inputGeminiModel',
+        listKey: 'draftSavedModels',
+        onRender: renderSavedModelsChips,
+        emptyMsg: 'กรุณาพิมพ์ชื่อโมเดลก่อนครับ'
+      });
     });
     $('btnFetchLiveModels').addEventListener('click', fetchLiveGeminiModels);
     $('selectFetchedModel').addEventListener('change', (e) => {
@@ -5012,6 +5152,23 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         renderSavedModelsChips();
         updateAiStudioThinkingHint(e.target.value);
         syncModelThinkingMetadata(e.target.value);
+      }
+    });
+
+    $('inputGeminiTtsModel').addEventListener('input', renderSavedTtsModelsChips);
+    $('btnRememberTtsModel').addEventListener('click', () => {
+      rememberDraftModel({
+        inputId: 'inputGeminiTtsModel',
+        listKey: 'draftSavedTtsModels',
+        onRender: renderSavedTtsModelsChips,
+        emptyMsg: 'กรุณาพิมพ์ชื่อโมเดลเสียง TTS ก่อนครับ'
+      });
+    });
+    $('btnFetchLiveTtsModels').addEventListener('click', fetchLiveGeminiModels);
+    $('selectFetchedTtsModel').addEventListener('change', (e) => {
+      if (e.target.value) {
+        $('inputGeminiTtsModel').value = e.target.value;
+        renderSavedTtsModelsChips();
       }
     });
     $('selectThinkingLevel').addEventListener('change', updateThinkingBudgetVisibility);
@@ -5045,12 +5202,14 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
           geminiApiKey: activeObj ? activeObj.key : '',
           geminiModel: $('inputGeminiModel').value.trim() || 'gemini-2.5-flash',
           savedModels: state.draftSavedModels,
+          ttsModel: $('inputGeminiTtsModel').value.trim().replace(/^models\//, '') || DEFAULT_TTS_MODEL,
+          savedTtsModels: state.draftSavedTtsModels,
           thinkingLevel: finalThinkingLevel,
           thinkingBudget: finalThinkingBudget,
           defaultStyle: $('inputDefaultTransStyle').value
         });
         $('transSettingsModalBackdrop').classList.add('hidden');
-        showToast('บันทึกการตั้งค่าคีย์, โมเดล และระดับความคิดแล้ว');
+        showToast('บันทึกการตั้งค่าคีย์, โมเดล (ข้อความ & TTS) และระดับความคิดแล้ว');
       } catch (err) {
         showToast('บันทึกไม่สำเร็จ: ' + (err?.code || err?.message));
       } finally {
@@ -6789,7 +6948,27 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     // ---------------------------------------------------------------------
     // FEATURE 6: THAI AUDIO READER / DUAL-ENGINE TTS (GEMINI AI + BROWSER)
     // ---------------------------------------------------------------------
-    const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+    function getActiveTtsModel() {
+      return (String(state.translator.ttsModel || '').trim().replace(/^models\//, '') || DEFAULT_TTS_MODEL).slice(0, 200);
+    }
+
+    function populateTtsModelQuickSelect() {
+      const sel = $('selectTtsModelQuick');
+      if (!sel) return;
+      sel.classList.toggle('hidden', state.ttsEngine !== 'gemini');
+      const active = getActiveTtsModel();
+      const candidates = Array.from(new Set([
+        active,
+        ...(Array.isArray(state.translator.savedTtsModels) ? state.translator.savedTtsModels : DEFAULT_SAVED_TTS_MODELS),
+        ...liveDiscoveredTtsModels
+      ].filter(Boolean)));
+      sel.innerHTML = candidates
+        .map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`)
+        .join('') +
+        '<option value="__OPEN_SETTINGS__">➕ ตั้งค่า / เพิ่มโมเดล TTS ใหม่...</option>';
+      sel.value = active;
+    }
+
     const GEMINI_TTS_VOICES = [
       { id: 'Kore', label: '👩 Kore — เสียงหญิงนุ่มละมุน (แนะนำ)' },
       { id: 'Aoede', label: '👩 Aoede — เสียงหญิงสดใส ชัดเจน' },
@@ -6824,6 +7003,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     function populateTtsVoiceOptions() {
       const engineEl = $('selectTtsEngine');
       const voiceEl = $('selectTtsVoice');
+      populateTtsModelQuickSelect();
       if (!voiceEl) return;
 
       if (engineEl) {
@@ -6923,10 +7103,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     }
 
     async function fetchGeminiTtsAudioUrl(text, voiceName = 'Kore') {
-      const apiKey = String(state.translator.geminiApiKey || '').trim();
-      if (!apiKey) throw new Error('MISSING_GEMINI_KEY');
+      const keyPool = getGeminiKeyPool();
+      if (keyPool.length === 0) throw new Error('MISSING_GEMINI_KEY');
 
-      const cacheKey = `${voiceName}::${text}`;
+      const ttsModel = getActiveTtsModel();
+      const cacheKey = `${ttsModel}::${voiceName}::${text}`;
       if (ttsAudioCache.has(cacheKey)) {
         const hitUrl = ttsAudioCache.get(cacheKey);
         ttsAudioCache.delete(cacheKey);
@@ -6939,8 +7120,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
 
       const taskPromise = (async () => {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const body = {
+        const bodyJson = JSON.stringify({
           contents: [{
             parts: [{
               text: `อ่านออกเสียงย่อหน้านิยายต่อไปนี้ด้วยน้ำเสียงนักเล่านิยายภาษาไทยที่เป็นธรรมชาติ ชัดเจน จังหวะน่าฟัง ไม่เร่งรีบ:\n\n${text}`
@@ -6954,17 +7134,41 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
               }
             }
           }
-        };
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error?.message || `Gemini TTS HTTP ${res.status}`);
+
+        let data = null;
+        let lastErr = null;
+        for (let kIdx = 0; kIdx < keyPool.length; kIdx++) {
+          const apiKey = keyPool[kIdx];
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ttsModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          let res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: bodyJson
+          });
+          if ((res.status === 429 || res.status === 503) && keyPool.length === 1) {
+            await new Promise((r) => setTimeout(r, 2200));
+            res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: bodyJson
+            });
+          }
+          if ((res.status === 429 || res.status === 503) && kIdx < keyPool.length - 1) {
+            lastErr = new Error(`Gemini TTS HTTP ${res.status}`);
+            continue;
+          }
+          const parsed = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(parsed?.error?.message || `Gemini TTS HTTP ${res.status}`);
+          }
+          data = parsed;
+          break;
         }
+        if (!data) {
+          throw lastErr || new Error('Gemini TTS: ติดลิมิตการใช้งานชั่วคราว (429/503)');
+        }
+
         const parts = Array.isArray(data?.candidates?.[0]?.content?.parts) ? data.candidates[0].content.parts : [];
         const inlineData = parts.find((p) => p?.inlineData?.data)?.inlineData;
         if (!inlineData?.data) {
@@ -7026,7 +7230,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         } else if (state.ttsPlaying) {
           const idxLabel = `${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
           statusEl.textContent = state.ttsEngine === 'gemini'
-            ? `🎙️ กำลังพากย์ย่อหน้า ${idxLabel} (${state.ttsGeminiVoice})`
+            ? `🎙️ กำลังพากย์ย่อหน้า ${idxLabel} (${state.ttsGeminiVoice} • ${getActiveTtsModel()})`
             : `💻 กำลังอ่านย่อหน้า ${idxLabel}`;
         } else if (state.ttsPaused) {
           statusEl.textContent = `⏸ พักอยู่ที่ย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
@@ -7155,7 +7359,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         }
       }
 
-      // Engine: Gemini AI TTS (gemini-2.5-flash-preview-tts)
+      // Engine: Gemini AI TTS (Dynamic Model)
       if (!requireGeminiKeyOrOpenSettings('เสียง AI นักพากย์ (Gemini TTS)')) {
         state.ttsPlaying = false;
         state.ttsPaused = false;
@@ -7381,6 +7585,30 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         ttsSpeakIndex(curIdx);
       } else {
         setTtsStatusText();
+      }
+    });
+    $('selectTtsModelQuick').addEventListener('change', async (e) => {
+      const val = String(e.target.value || '').trim();
+      if (val === '__OPEN_SETTINGS__') {
+        e.target.value = getActiveTtsModel();
+        openTransSettingsModal();
+        setTimeout(() => $('inputGeminiTtsModel')?.focus(), 50);
+        return;
+      }
+      if (!val) return;
+      state.translator.ttsModel = val;
+      if (state.ttsPlaying || state.ttsPaused) {
+        const curIdx = state.ttsParaIndex || 0;
+        state.ttsSessionId += 1;
+        stopAllTtsAudio();
+        ttsSpeakIndex(curIdx);
+      } else {
+        setTtsStatusText();
+      }
+      try {
+        await saveTranslatorConfig({ ttsModel: val });
+      } catch (err) {
+        console.warn('saveTranslatorConfig ttsModel quick switch error:', err);
       }
     });
     $('selectTtsVoice').addEventListener('change', (e) => {
