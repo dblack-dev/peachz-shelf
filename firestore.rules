@@ -64,8 +64,14 @@ rules_version = '2';
 //
 //    4b. Translator Config (e.g., docId = 'translator'):
 //      - geminiApiKey: string (required, <= 500 chars)
-//      - geminiModel: string (required, <= 120 chars)
+//      - geminiModel: string (required, <= 200 chars)
 //      - defaultStyle: string (required, <= 2,000 chars)
+//      - activeKeyId: string (optional, <= 120 chars)
+//      - activeKeyName: string (optional, <= 120 chars)
+//      - savedKeysJson: string (optional, <= 50,000 chars)
+//      - savedModelsJson: string (optional, <= 20,000 chars)
+//      - thinkingLevel: string (optional, <= 50 chars)
+//      - thinkingBudget: number (optional, 0..1,000,000)
 //      - updatedAt: number (required, 0..9,999,999,999,999)
 //
 // ===============================================================
@@ -219,11 +225,21 @@ service cloud.firestore {
 
     // Validator for Private Novel Reader translator configuration
     function isValidTranslatorConfig(data) {
-      return hasOnlyAllowedFields(data, ['geminiApiKey', 'geminiModel', 'defaultStyle', 'updatedAt']) &&
+      return hasOnlyAllowedFields(data, [
+               'geminiApiKey', 'geminiModel', 'defaultStyle', 'activeKeyId',
+               'activeKeyName', 'savedKeysJson', 'savedModelsJson',
+               'thinkingLevel', 'thinkingBudget', 'updatedAt'
+             ]) &&
              hasRequiredFields(data, ['geminiApiKey', 'geminiModel', 'defaultStyle', 'updatedAt']) &&
              data.geminiApiKey is string && data.geminiApiKey.size() <= 500 &&
-             data.geminiModel is string && data.geminiModel.size() <= 120 &&
+             data.geminiModel is string && data.geminiModel.size() <= 200 &&
              data.defaultStyle is string && data.defaultStyle.size() <= 2000 &&
+             isValidOptionalString(data, 'activeKeyId', 120) &&
+             isValidOptionalString(data, 'activeKeyName', 120) &&
+             isValidOptionalString(data, 'savedKeysJson', 50000) &&
+             isValidOptionalString(data, 'savedModelsJson', 20000) &&
+             isValidOptionalString(data, 'thinkingLevel', 50) &&
+             (!('thinkingBudget' in data) || (data.thinkingBudget is number && data.thinkingBudget >= 0 && data.thinkingBudget <= 1000000)) &&
              isValidEpochMs(data.updatedAt);
     }
 

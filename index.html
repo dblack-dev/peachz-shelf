@@ -232,6 +232,14 @@
       </div>
     </header>
 
+    <!-- Live AI Translator Status Bar (Library & Detail Views) -->
+    <div id="headerAiStatusBar" class="bg-app-subtle/70 border-b border-app px-3 sm:px-6 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+      <button id="btnHeaderAiStatus" type="button" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-app-sub hover:text-app-main transition text-left">
+        <span id="headerAiStatusText" class="font-medium">🔑 คีย์: ยังไม่ได้ใส่คีย์ • 🤖 โมเดล: gemini-2.5-flash • 🧠 ความคิด: อัตโนมัติ</span>
+        <span class="text-app-accent font-semibold underline">เปลี่ยน/ตั้งค่า</span>
+      </button>
+    </div>
+
     <!-- ===================================================================
          VIEW 1: LIBRARY (ชั้นหนังสือ)
          =================================================================== -->
@@ -565,6 +573,12 @@
               </div>
             </div>
             <div id="readerTransStatus" class="hidden text-xs text-app-accent font-medium"></div>
+            <div>
+              <button id="readerAiStatusBadge" type="button" title="คลิกเพื่อเปลี่ยนคีย์, โมเดล หรือระดับความคิด AI"
+                class="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] text-app-sub hover:text-app-main transition text-left">
+                🔑 คีย์: ยังไม่ได้ใส่คีย์ • 🤖 โมเดล: gemini-2.5-flash • 🧠 ความคิด: อัตโนมัติ
+              </button>
+            </div>
           </header>
 
           <div id="readerContent" class="reader-content font-sarabun leading-relaxed" style="font-size: 18px; line-height: 1.95;"></div>
@@ -816,48 +830,110 @@
   </div>
 
   <!-- =====================================================================
-       MODAL: TRANSLATOR SETTINGS (GEMINI API KEY & STYLE)
+       MODAL: TRANSLATOR SETTINGS (MULTI-KEY, ANY MODEL, THINKING LEVEL)
        ===================================================================== -->
   <div id="transSettingsModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
-    <div class="w-full max-w-lg bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="w-full max-w-2xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
       <div class="px-5 py-4 border-b border-app flex items-center justify-between">
         <div>
-          <h3 class="font-bold text-base text-app-main">🌐 ตั้งค่าระบบแปลภาษา</h3>
+          <h3 class="font-bold text-base text-app-main">🌐 ตั้งค่าระบบแปลภาษา &amp; คลังคีย์/โมเดล AI</h3>
           <p class="text-[11px] text-app-sub">ซิงค์เก็บในบัญชีส่วนตัวของคุณบน Cloud Firestore</p>
         </div>
         <button id="btnCloseTransSettingsModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main">✕</button>
       </div>
-      <div class="p-5 space-y-4 overflow-y-auto text-xs sm:text-sm">
+      <div class="p-5 space-y-5 overflow-y-auto text-xs sm:text-sm">
         <div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs leading-relaxed">
-          <strong>💡 แปลฟรีทันทีไม่ต้องใส่ Key:</strong> ปุ่ม <strong>"🌐 แปลด่วนฟรี"</strong> ใช้ได้ทันทีโดยไม่ต้องกรอก Gemini API Key ส่วนปุ่ม <strong>"✨ แปลด้วย AI"</strong> จะใช้ Gemini Key เพื่อแปลสำนวนนิยายที่ลื่นไหลเป็นธรรมชาติยิ่งขึ้น
+          <strong>💡 แปลฟรีทันทีไม่ต้องใส่ Key:</strong> ปุ่ม <strong>"🌐 แปลด่วนฟรี"</strong> ใช้ได้ทันทีโดยไม่ต้องใช้ Key ส่วน <strong>"✨ แปลด้วย AI"</strong> รองรับหลาย Key, พิมพ์ชื่อโมเดลใหม่ๆ ในอนาคตได้ไม่จำกัด และเลือกระดับความคิดได้ครับ
         </div>
-        <div class="space-y-1">
-          <label class="font-semibold text-app-main">Gemini API Key (สำหรับโหมดแปลด้วย AI)</label>
-          <div class="flex items-center gap-2">
-            <input id="inputGeminiApiKey" type="password" maxlength="500" placeholder="AIzaSy..."
-              class="flex-1 px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            <button id="btnToggleApiKeyVis" type="button" title="แสดง/ซ่อน Key"
-              class="px-3 py-2.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main">👁</button>
+
+        <!-- Section A: Multi API Key Manager -->
+        <div class="p-4 rounded-2xl bg-app-subtle/60 border border-app space-y-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="font-bold text-app-main">🔑 จัดการ API Keys (บันทึกหลายคีย์ + ตั้งชื่อสลับใช้งาน)</label>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] underline text-app-accent">ขอ Key ฟรีที่นี่</a>
           </div>
-          <p class="text-[11px] text-app-sub">ขอคีย์ฟรีได้ที่ <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="underline text-app-accent">Google AI Studio</a></p>
+          <div id="savedKeysList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+          <div class="pt-2 border-t border-app space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="inputKeyName" type="text" maxlength="100" placeholder="ตั้งชื่อคีย์ เช่น คีย์หลัก, สำรอง 2"
+                class="px-3 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              <div class="sm:col-span-2 flex items-center gap-1.5">
+                <input id="inputGeminiApiKey" type="password" maxlength="500" placeholder="วาง Gemini API Key (AIzaSy...)"
+                  class="flex-1 px-3 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                <button id="btnToggleApiKeyVis" type="button" title="แสดง/ซ่อน Key"
+                  class="px-2.5 py-2 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main">👁</button>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnAddOrUpdateKey" type="button"
+                class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+                ＋ บันทึกคีย์นี้เข้าคลัง
+              </button>
+              <button id="btnCancelKeyEdit" type="button"
+                class="hidden px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-sub">
+                ยกเลิกแก้ไข
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="space-y-1">
-          <label class="font-semibold text-app-main">โมเดล AI ที่ใช้แปล</label>
-          <select id="selectGeminiModel" class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none">
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash (แนะนำ — เร็วและประหยัด)</option>
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro (สำนวนละเอียดสูงสุด)</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash (สำรอง)</option>
-          </select>
+
+        <!-- Section B: Free-form Model + Saved Models + Fetch Live Models -->
+        <div class="p-4 rounded-2xl bg-app-subtle/60 border border-app space-y-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="font-bold text-app-main">🤖 ชื่อโมเดล AI (พิมพ์ชื่อโมเดลได้ทุกตัวทั้งปัจจุบันและอนาคต)</label>
+            <button id="btnFetchLiveModels" type="button"
+              class="px-2.5 py-1 rounded-lg bg-app-surface border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
+              🔄 ดึงรายชื่อโมเดลล่าสุดจาก API
+            </button>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <input id="inputGeminiModel" type="text" maxlength="200" placeholder="เช่น gemini-2.5-flash, gemini-3-pro-preview, gemini-4-..."
+              class="flex-1 px-3.5 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <button id="btnRememberModel" type="button"
+              class="px-3.5 py-2 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:opacity-90 shrink-0 transition">
+              ⭐ จำโมเดลนี้ไว้กดเลือก
+            </button>
+          </div>
+          <div id="fetchedModelsWrap" class="hidden space-y-1">
+            <div class="text-[11px] font-semibold text-app-accent">โมเดลที่คีย์นี้ใช้งานได้ (เลือกเพื่อใส่ในช่องด้านบน):</div>
+            <select id="selectFetchedModel" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-xs font-mono text-app-main focus:outline-none"></select>
+          </div>
+          <div class="space-y-1.5">
+            <div class="text-[11px] font-semibold text-app-sub">โมเดลที่จดจำไว้ (คลิกเพื่อเลือกใช้ทันที):</div>
+            <div id="savedModelsChips" class="flex flex-wrap gap-1.5"></div>
+          </div>
         </div>
+
+        <!-- Section C: Thinking Level -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-bold text-app-main">🧠 ระดับความคิดของโมเดล (Thinking Level)</label>
+            <select id="selectThinkingLevel" class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main text-xs sm:text-sm focus:outline-none">
+              <option value="auto">อัตโนมัติ (ตามค่าเริ่มต้นของโมเดล)</option>
+              <option value="off">ปิดการคิด (0 tokens — เร็วสุด/ประหยัด)</option>
+              <option value="low">ต่ำ — Low (1,024 tokens)</option>
+              <option value="medium">กลาง — Medium (4,096 tokens)</option>
+              <option value="high">สูง — High (16,384 tokens — คิดลึก)</option>
+              <option value="custom">กำหนดเอง (ระบุ Thinking Tokens)</option>
+            </select>
+          </div>
+          <div id="customThinkingWrap" class="hidden space-y-1">
+            <label class="font-bold text-app-main">จำนวน Thinking Tokens (กำหนดเอง)</label>
+            <input id="inputCustomThinkingBudget" type="number" min="0" max="65536" step="256" value="4096"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main text-xs sm:text-sm focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Section D: Default Style -->
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">คำสั่งสไตล์สำนวนเริ่มต้น (Default Style)</label>
+          <label class="font-bold text-app-main">คำสั่งสไตล์สำนวนเริ่มต้น (Default Style)</label>
           <textarea id="inputDefaultTransStyle" rows="3" maxlength="2000"
             class="w-full p-3 rounded-xl bg-app-subtle border border-app text-app-main leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"></textarea>
         </div>
       </div>
       <div class="px-5 py-3.5 border-t border-app flex items-center justify-end gap-2">
         <button id="btnCancelTransSettings" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ยกเลิก</button>
-        <button id="btnSaveTransSettings" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm">บันทึกการตั้งค่า</button>
+        <button id="btnSaveTransSettings" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm">บันทึก &amp; ใช้งานค่านี้</button>
       </div>
     </div>
   </div>
@@ -932,6 +1008,7 @@
             <button type="button" data-batch-engine="free" class="py-2.5 px-3 rounded-xl border text-xs font-semibold transition">🌐 แปลด่วนฟรี (Google)</button>
             <button type="button" data-batch-engine="ai" class="py-2.5 px-3 rounded-xl border text-xs font-semibold transition">✨ แปลด้วย AI (Gemini)</button>
           </div>
+          <div id="batchAiStatusBadge" class="hidden p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-700 dark:text-indigo-300 font-medium"></div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1">
@@ -1039,15 +1116,25 @@
       editingNovelId: null,
       editingChapterId: null,
       editingNoteChapterId: null,
+      editingKeyId: null,
       chapterModalMode: 'single',
       bulkParsedChapters: [],
       translatingChapter: false,
       batchEngine: 'free',
       batchRunning: false,
       batchStopRequested: false,
+      draftSavedKeys: [],
+      draftActiveKeyId: '',
+      draftSavedModels: [],
       translator: {
         geminiApiKey: '',
+        activeKeyId: '',
+        activeKeyName: '',
+        savedKeys: [],
         geminiModel: 'gemini-2.5-flash',
+        savedModels: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-3-flash-preview', 'gemini-3-pro-preview'],
+        thinkingLevel: 'auto',
+        thinkingBudget: 4096,
         defaultStyle: DEFAULT_TRANS_STYLE
       },
       prefs: {
@@ -1172,6 +1259,100 @@
       return htmlParts.join('') || '<p>(ยังไม่มีเนื้อหาในตอนนี้)</p>';
     }
 
+    const DEFAULT_SAVED_MODELS = [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-3-pro-preview'
+    ];
+
+    function normalizeTranslatorState(raw = {}) {
+      let savedKeys = [];
+      try {
+        const parsed = typeof raw.savedKeysJson === 'string'
+          ? JSON.parse(raw.savedKeysJson)
+          : (Array.isArray(raw.savedKeys) ? raw.savedKeys : []);
+        if (Array.isArray(parsed)) {
+          savedKeys = parsed
+            .filter((k) => k && typeof k.key === 'string' && k.key.trim())
+            .map((k, idx) => ({
+              id: String(k.id || `key_${idx}_${Date.now()}`).slice(0, 80),
+              name: String(k.name || `คีย์ ${idx + 1}`).trim().slice(0, 100),
+              key: String(k.key).trim().slice(0, 500)
+            }));
+        }
+      } catch (e) {}
+
+      const legacyKey = String(raw.geminiApiKey || '').trim().slice(0, 500);
+      if (savedKeys.length === 0 && legacyKey) {
+        savedKeys.push({
+          id: 'key_default',
+          name: String(raw.activeKeyName || 'คีย์หลัก').trim().slice(0, 100),
+          key: legacyKey
+        });
+      }
+
+      let activeKeyObj = savedKeys.find((k) => k.id === raw.activeKeyId) || savedKeys.find((k) => k.key === legacyKey) || savedKeys[0] || null;
+      const activeKeyId = activeKeyObj ? activeKeyObj.id : '';
+      const activeKeyName = activeKeyObj ? activeKeyObj.name : '';
+      const geminiApiKey = activeKeyObj ? activeKeyObj.key : legacyKey;
+
+      let savedModels = [...DEFAULT_SAVED_MODELS];
+      try {
+        const parsedModels = typeof raw.savedModelsJson === 'string'
+          ? JSON.parse(raw.savedModelsJson)
+          : (Array.isArray(raw.savedModels) ? raw.savedModels : null);
+        if (Array.isArray(parsedModels) && parsedModels.length > 0) {
+          savedModels = Array.from(new Set(parsedModels.map((m) => String(m || '').trim().slice(0, 200)).filter(Boolean)));
+        }
+      } catch (e) {}
+
+      const geminiModel = (String(raw.geminiModel || '').trim() || 'gemini-2.5-flash').slice(0, 200);
+      const validLevels = ['auto', 'off', 'low', 'medium', 'high', 'custom'];
+      const thinkingLevel = validLevels.includes(raw.thinkingLevel) ? raw.thinkingLevel : 'auto';
+      const thinkingBudget = Math.max(0, Math.min(1000000, Number.isFinite(Number(raw.thinkingBudget)) ? Math.round(Number(raw.thinkingBudget)) : 4096));
+      const defaultStyle = (String(raw.defaultStyle || '').trim() || DEFAULT_TRANS_STYLE).slice(0, 2000);
+
+      return {
+        geminiApiKey,
+        activeKeyId,
+        activeKeyName,
+        savedKeys,
+        geminiModel,
+        savedModels,
+        thinkingLevel,
+        thinkingBudget,
+        defaultStyle
+      };
+    }
+
+    function getThinkingLabel(level, budget) {
+      if (level === 'off') return 'ปิด (0)';
+      if (level === 'low') return 'ต่ำ (1K)';
+      if (level === 'medium') return 'กลาง (4K)';
+      if (level === 'high') return 'สูง (16K)';
+      if (level === 'custom') return `กำหนดเอง (${Number(budget || 0).toLocaleString()})`;
+      return 'อัตโนมัติ';
+    }
+
+    function renderTranslatorStatusBadges() {
+      const t = state.translator;
+      const keyLabel = t.geminiApiKey
+        ? (t.activeKeyName || 'คีย์ใช้งานอยู่')
+        : 'ยังไม่ได้ใส่คีย์';
+      const modelLabel = t.geminiModel || 'gemini-2.5-flash';
+      const thinkLabel = getThinkingLabel(t.thinkingLevel, t.thinkingBudget);
+      const summary = `🔑 คีย์: ${keyLabel}  •  🤖 โมเดล: ${modelLabel}  •  🧠 ความคิด: ${thinkLabel}`;
+
+      const hEl = $('headerAiStatusText');
+      if (hEl) hEl.textContent = summary;
+      const rEl = $('readerAiStatusBadge');
+      if (rEl) rEl.textContent = summary;
+      const bEl = $('batchAiStatusBadge');
+      if (bEl) bEl.textContent = summary;
+    }
+
     function loadLocalPrefs() {
       try {
         const raw = localStorage.getItem(PREFS_LOCAL_KEY);
@@ -1181,15 +1362,11 @@
         }
         const tRaw = localStorage.getItem(TRANS_LOCAL_KEY);
         if (tRaw) {
-          const tParsed = JSON.parse(tRaw);
-          state.translator = {
-            geminiApiKey: String(tParsed.geminiApiKey || ''),
-            geminiModel: String(tParsed.geminiModel || 'gemini-2.5-flash'),
-            defaultStyle: String(tParsed.defaultStyle || DEFAULT_TRANS_STYLE)
-          };
+          state.translator = normalizeTranslatorState(JSON.parse(tRaw));
         }
       } catch (e) {}
       applyReaderPrefsUI();
+      renderTranslatorStatusBadges();
     }
 
     let prefsSaveTimer = null;
@@ -1244,13 +1421,9 @@
       try {
         const snap = await getDoc(doc(db, 'users', state.user.uid, 'readerMeta', 'translator'));
         if (snap.exists()) {
-          const d = snap.data();
-          state.translator = {
-            geminiApiKey: String(d.geminiApiKey || '').slice(0, 500),
-            geminiModel: String(d.geminiModel || 'gemini-2.5-flash').slice(0, 120),
-            defaultStyle: String(d.defaultStyle || DEFAULT_TRANS_STYLE).slice(0, 2000)
-          };
+          state.translator = normalizeTranslatorState(snap.data());
           localStorage.setItem(TRANS_LOCAL_KEY, JSON.stringify(state.translator));
+          renderTranslatorStatusBadges();
         }
       } catch (err) {
         console.warn('Could not load translator config:', err);
@@ -1258,21 +1431,29 @@
     }
 
     async function saveTranslatorConfig(cfg) {
-      const payload = {
-        geminiApiKey: String(cfg.geminiApiKey || '').trim().slice(0, 500),
-        geminiModel: String(cfg.geminiModel || 'gemini-2.5-flash').trim().slice(0, 120),
-        defaultStyle: (String(cfg.defaultStyle || '').trim() || DEFAULT_TRANS_STYLE).slice(0, 2000),
-        updatedAt: Date.now()
-      };
-      state.translator = {
-        geminiApiKey: payload.geminiApiKey,
-        geminiModel: payload.geminiModel,
-        defaultStyle: payload.defaultStyle
-      };
+      const normalized = normalizeTranslatorState({
+        ...state.translator,
+        ...cfg
+      });
+      state.translator = normalized;
       try {
-        localStorage.setItem(TRANS_LOCAL_KEY, JSON.stringify(state.translator));
+        localStorage.setItem(TRANS_LOCAL_KEY, JSON.stringify(normalized));
       } catch (e) {}
+      renderTranslatorStatusBadges();
+
       if (state.user) {
+        const payload = {
+          geminiApiKey: normalized.geminiApiKey,
+          geminiModel: normalized.geminiModel,
+          defaultStyle: normalized.defaultStyle,
+          activeKeyId: normalized.activeKeyId,
+          activeKeyName: normalized.activeKeyName,
+          savedKeysJson: JSON.stringify(normalized.savedKeys).slice(0, 50000),
+          savedModelsJson: JSON.stringify(normalized.savedModels).slice(0, 20000),
+          thinkingLevel: normalized.thinkingLevel,
+          thinkingBudget: normalized.thinkingBudget,
+          updatedAt: Date.now()
+        };
         await setDoc(doc(db, 'users', state.user.uid, 'readerMeta', 'translator'), payload);
       }
     }
@@ -1320,6 +1501,7 @@
       $('viewDetail').classList.toggle('hidden', viewName !== 'detail');
       $('viewReader').classList.toggle('hidden', viewName !== 'reader');
       $('mainHeader').classList.toggle('hidden', viewName === 'reader');
+      $('headerAiStatusBar').classList.toggle('hidden', viewName === 'reader');
       if (viewName !== 'reader') {
         $('readerSettingsPanel').classList.add('hidden');
         $('btnScrollTop').classList.add('hidden');
@@ -2821,33 +3003,61 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return outChunks.join('\n\n').trim();
     }
 
+    function resolveThinkingBudget() {
+      const lvl = state.translator.thinkingLevel || 'auto';
+      if (lvl === 'off') return 0;
+      if (lvl === 'low') return 1024;
+      if (lvl === 'medium') return 4096;
+      if (lvl === 'high') return 16384;
+      if (lvl === 'custom') return Math.max(0, parseInt(state.translator.thinkingBudget, 10) || 0);
+      return null;
+    }
+
     async function callGeminiApi(promptText, systemInstruction = '') {
       const apiKey = String(state.translator.geminiApiKey || '').trim();
       if (!apiKey) {
         throw new Error('MISSING_GEMINI_KEY');
       }
-      const model = String(state.translator.geminiModel || 'gemini-2.5-flash').trim() || 'gemini-2.5-flash';
+      const model = (String(state.translator.geminiModel || '').trim() || 'gemini-2.5-flash').replace(/^models\//, '');
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-      const body = {
-        contents: [{ role: 'user', parts: [{ text: promptText }] }],
-        generationConfig: { temperature: 0.45 }
+      const budget = resolveThinkingBudget();
+      const buildBody = (withThinking) => {
+        const genCfg = { temperature: 0.45 };
+        if (withThinking && budget !== null) {
+          genCfg.thinkingConfig = { thinkingBudget: budget };
+        }
+        const b = {
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          generationConfig: genCfg
+        };
+        if (systemInstruction) {
+          b.systemInstruction = { parts: [{ text: systemInstruction }] };
+        }
+        return b;
       };
-      if (systemInstruction) {
-        body.systemInstruction = { parts: [{ text: systemInstruction }] };
-      }
 
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(buildBody(true))
       });
+
+      if (res.status === 400 && budget !== null) {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildBody(false))
+        });
+      }
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.error?.message || `HTTP ${res.status}`;
         throw new Error(`Gemini API: ${msg}`);
       }
-      const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim() || '';
+      const parts = Array.isArray(data?.candidates?.[0]?.content?.parts) ? data.candidates[0].content.parts : [];
+      const text = parts.filter((p) => !p.thought).map((p) => p.text || '').join('').trim();
       if (!text) throw new Error('Gemini ไม่ได้ส่งข้อความตอบกลับมา');
       return text;
     }
@@ -3003,11 +3213,184 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
     }
 
+    function maskApiKey(key) {
+      const s = String(key || '').trim();
+      if (s.length <= 10) return '••••';
+      return `${s.slice(0, 6)}...${s.slice(-4)}`;
+    }
+
+    function renderSavedKeysUI() {
+      const listEl = $('savedKeysList');
+      listEl.innerHTML = '';
+      if (!state.draftSavedKeys.length) {
+        listEl.innerHTML = '<div class="text-xs text-app-sub py-2">ยังไม่มีคีย์ที่บันทึกไว้ กรอกชื่อและ Key ด้านล่างได้เลยครับ</div>';
+        return;
+      }
+      state.draftSavedKeys.forEach((k) => {
+        const isActive = k.id === state.draftActiveKeyId;
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between gap-2 p-2.5 rounded-xl border text-xs ${
+          isActive ? 'bg-indigo-500/10 border-indigo-500/40' : 'bg-app-surface border-app'
+        }`;
+        row.innerHTML = `
+          <div class="min-w-0 flex-1">
+            <div class="font-bold text-app-main truncate flex items-center gap-1.5">
+              <span>${isActive ? '🟢' : '⚪'}</span>
+              <span class="truncate">${escapeHtml(k.name)}</span>
+              ${isActive ? '<span class="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[10px]">ใช้งานอยู่</span>' : ''}
+            </div>
+            <div class="text-[11px] font-mono text-app-sub truncate">${escapeHtml(maskApiKey(k.key))}</div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            ${!isActive ? '<button type="button" class="btn-pick-key px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-semibold">ใช้คีย์นี้</button>' : ''}
+            <button type="button" class="btn-edit-key p-1.5 rounded-lg hover:bg-app-subtle text-xs" title="แก้ไขคีย์">✏️</button>
+            <button type="button" class="btn-del-key p-1.5 rounded-lg hover:bg-rose-500/15 text-rose-500 text-xs" title="ลบคีย์">🗑️</button>
+          </div>
+        `;
+        row.querySelector('.btn-pick-key')?.addEventListener('click', () => {
+          state.draftActiveKeyId = k.id;
+          renderSavedKeysUI();
+        });
+        row.querySelector('.btn-edit-key').addEventListener('click', () => {
+          state.editingKeyId = k.id;
+          $('inputKeyName').value = k.name;
+          $('inputGeminiApiKey').value = k.key;
+          $('btnAddOrUpdateKey').textContent = '💾 อัปเดตคีย์นี้';
+          $('btnCancelKeyEdit').classList.remove('hidden');
+        });
+        row.querySelector('.btn-del-key').addEventListener('click', () => {
+          state.draftSavedKeys = state.draftSavedKeys.filter((item) => item.id !== k.id);
+          if (state.draftActiveKeyId === k.id) {
+            state.draftActiveKeyId = state.draftSavedKeys[0]?.id || '';
+          }
+          if (state.editingKeyId === k.id) resetKeyEditForm();
+          renderSavedKeysUI();
+        });
+        listEl.appendChild(row);
+      });
+    }
+
+    function resetKeyEditForm() {
+      state.editingKeyId = null;
+      $('inputKeyName').value = '';
+      $('inputGeminiApiKey').value = '';
+      $('btnAddOrUpdateKey').textContent = '＋ บันทึกคีย์นี้เข้าคลัง';
+      $('btnCancelKeyEdit').classList.add('hidden');
+    }
+
+    function addOrUpdateDraftKey() {
+      const nameVal = $('inputKeyName').value.trim().slice(0, 100);
+      const keyVal = $('inputGeminiApiKey').value.trim().slice(0, 500);
+      if (!keyVal) {
+        showToast('กรุณาวาง Gemini API Key ก่อนครับ');
+        return false;
+      }
+      const finalName = nameVal || `คีย์ ${state.draftSavedKeys.length + 1}`;
+      if (state.editingKeyId) {
+        const target = state.draftSavedKeys.find((k) => k.id === state.editingKeyId);
+        if (target) {
+          target.name = finalName;
+          target.key = keyVal;
+          state.draftActiveKeyId = target.id;
+        }
+      } else {
+        const newId = 'k_' + Date.now();
+        state.draftSavedKeys.push({ id: newId, name: finalName, key: keyVal });
+        state.draftActiveKeyId = newId;
+      }
+      resetKeyEditForm();
+      renderSavedKeysUI();
+      return true;
+    }
+
+    function renderSavedModelsChips() {
+      const box = $('savedModelsChips');
+      const currentVal = $('inputGeminiModel').value.trim();
+      box.innerHTML = '';
+      state.draftSavedModels.forEach((m) => {
+        const active = m === currentVal;
+        const wrap = document.createElement('div');
+        wrap.className = `inline-flex items-center rounded-xl border text-[11px] font-mono overflow-hidden ${
+          active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-app-surface text-app-main border-app'
+        }`;
+        const pickBtn = document.createElement('button');
+        pickBtn.type = 'button';
+        pickBtn.className = 'px-2.5 py-1 font-semibold hover:opacity-85';
+        pickBtn.textContent = m;
+        pickBtn.addEventListener('click', () => {
+          $('inputGeminiModel').value = m;
+          renderSavedModelsChips();
+        });
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = `px-1.5 py-1 text-[10px] hover:bg-black/15 ${active ? 'text-white/90' : 'text-app-sub'}`;
+        delBtn.title = 'ลบออกจากรายการจำ';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', () => {
+          state.draftSavedModels = state.draftSavedModels.filter((item) => item !== m);
+          renderSavedModelsChips();
+        });
+        wrap.append(pickBtn, delBtn);
+        box.appendChild(wrap);
+      });
+    }
+
+    function updateThinkingBudgetVisibility() {
+      $('customThinkingWrap').classList.toggle('hidden', $('selectThinkingLevel').value !== 'custom');
+    }
+
     function openTransSettingsModal() {
-      $('inputGeminiApiKey').value = state.translator.geminiApiKey || '';
-      $('selectGeminiModel').value = state.translator.geminiModel || 'gemini-2.5-flash';
+      state.draftSavedKeys = state.translator.savedKeys.map((k) => ({ ...k }));
+      state.draftActiveKeyId = state.translator.activeKeyId || state.draftSavedKeys[0]?.id || '';
+      state.draftSavedModels = [...(state.translator.savedModels || DEFAULT_SAVED_MODELS)];
+      resetKeyEditForm();
+      renderSavedKeysUI();
+
+      $('inputGeminiModel').value = state.translator.geminiModel || 'gemini-2.5-flash';
+      renderSavedModelsChips();
+      $('fetchedModelsWrap').classList.add('hidden');
+
+      $('selectThinkingLevel').value = state.translator.thinkingLevel || 'auto';
+      $('inputCustomThinkingBudget').value = String(state.translator.thinkingBudget ?? 4096);
+      updateThinkingBudgetVisibility();
+
       $('inputDefaultTransStyle').value = state.translator.defaultStyle || DEFAULT_TRANS_STYLE;
       $('transSettingsModalBackdrop').classList.remove('hidden');
+    }
+
+    async function fetchLiveGeminiModels() {
+      const draftActive = state.draftSavedKeys.find((k) => k.id === state.draftActiveKeyId);
+      const apiKey = $('inputGeminiApiKey').value.trim() || draftActive?.key || state.translator.geminiApiKey;
+      if (!apiKey) {
+        showToast('กรุณาเลือกหรือกรอก Gemini API Key ก่อนดึงรายชื่อโมเดลครับ');
+        return;
+      }
+      const btn = $('btnFetchLiveModels');
+      btn.disabled = true;
+      btn.textContent = 'กำลังดึง...';
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        const models = (Array.isArray(data.models) ? data.models : [])
+          .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+          .map((m) => String(m.name || '').replace(/^models\//, ''))
+          .filter(Boolean);
+        if (!models.length) {
+          showToast('ไม่พบโมเดล generateContent จากคีย์นี้');
+          return;
+        }
+        const sel = $('selectFetchedModel');
+        sel.innerHTML = '<option value="">-- คลิกเลือกโมเดลจากรายการสด (' + models.length + ' รุ่น) --</option>' +
+          models.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+        $('fetchedModelsWrap').classList.remove('hidden');
+        showToast(`พบ ${models.length} โมเดลที่ใช้งานได้`);
+      } catch (err) {
+        showToast('ดึงรายชื่อโมเดลไม่สำเร็จ: ' + (err?.message || 'ผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 ดึงรายชื่อโมเดลล่าสุดจาก API';
+      }
     }
 
     function openGlossaryModal() {
@@ -3233,6 +3616,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
             : 'bg-app-subtle text-app-main border-app hover:opacity-85'
         }`;
       });
+      $('batchAiStatusBadge').classList.toggle('hidden', engine !== 'ai');
+      renderTranslatorStatusBadges();
     }
 
     function openBatchTransModal() {
@@ -3634,6 +4019,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
     // Translation UI & Modal Bindings
     $('btnOpenTransSettings').addEventListener('click', openTransSettingsModal);
+    $('btnHeaderAiStatus').addEventListener('click', openTransSettingsModal);
+    $('readerAiStatusBadge').addEventListener('click', openTransSettingsModal);
     $('btnCloseTransSettingsModal').addEventListener('click', () => $('transSettingsModalBackdrop').classList.add('hidden'));
     $('btnCancelTransSettings').addEventListener('click', () => $('transSettingsModalBackdrop').classList.add('hidden'));
     $('transSettingsModalBackdrop').addEventListener('click', (e) => {
@@ -3643,17 +4030,51 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       const inp = $('inputGeminiApiKey');
       inp.type = inp.type === 'password' ? 'text' : 'password';
     });
+    $('btnAddOrUpdateKey').addEventListener('click', addOrUpdateDraftKey);
+    $('btnCancelKeyEdit').addEventListener('click', resetKeyEditForm);
+    $('inputGeminiModel').addEventListener('input', renderSavedModelsChips);
+    $('btnRememberModel').addEventListener('click', () => {
+      const m = $('inputGeminiModel').value.trim().slice(0, 200);
+      if (!m) {
+        showToast('กรุณาพิมพ์ชื่อโมเดลก่อนครับ');
+        return;
+      }
+      if (!state.draftSavedModels.includes(m)) {
+        state.draftSavedModels.unshift(m);
+      }
+      renderSavedModelsChips();
+      showToast(`จำโมเดล "${m}" ไว้ในรายการแล้ว (อย่าลืมกดบันทึกด้านล่าง)`);
+    });
+    $('btnFetchLiveModels').addEventListener('click', fetchLiveGeminiModels);
+    $('selectFetchedModel').addEventListener('change', (e) => {
+      if (e.target.value) {
+        $('inputGeminiModel').value = e.target.value;
+        renderSavedModelsChips();
+      }
+    });
+    $('selectThinkingLevel').addEventListener('change', updateThinkingBudgetVisibility);
+
     $('btnSaveTransSettings').addEventListener('click', async () => {
       const btn = $('btnSaveTransSettings');
       btn.disabled = true;
       try {
+        if ($('inputGeminiApiKey').value.trim()) {
+          addOrUpdateDraftKey();
+        }
+        const activeObj = state.draftSavedKeys.find((k) => k.id === state.draftActiveKeyId) || state.draftSavedKeys[0] || null;
         await saveTranslatorConfig({
-          geminiApiKey: $('inputGeminiApiKey').value,
-          geminiModel: $('selectGeminiModel').value,
+          savedKeys: state.draftSavedKeys,
+          activeKeyId: activeObj ? activeObj.id : '',
+          activeKeyName: activeObj ? activeObj.name : '',
+          geminiApiKey: activeObj ? activeObj.key : '',
+          geminiModel: $('inputGeminiModel').value.trim() || 'gemini-2.5-flash',
+          savedModels: state.draftSavedModels,
+          thinkingLevel: $('selectThinkingLevel').value,
+          thinkingBudget: parseInt($('inputCustomThinkingBudget').value, 10) || 4096,
           defaultStyle: $('inputDefaultTransStyle').value
         });
         $('transSettingsModalBackdrop').classList.add('hidden');
-        showToast('บันทึกการตั้งค่าการแปลแล้ว');
+        showToast('บันทึกการตั้งค่าคีย์, โมเดล และระดับความคิดแล้ว');
       } catch (err) {
         showToast('บันทึกไม่สำเร็จ: ' + (err?.code || err?.message));
       } finally {
