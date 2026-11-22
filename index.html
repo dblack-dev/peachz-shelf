@@ -605,7 +605,10 @@
         <article id="readerArticle" class="mx-auto space-y-6" style="max-width: 740px;">
           <header class="pb-4 border-b border-app space-y-2">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-              <div id="readerBodyOrder" class="text-xs font-semibold text-app-accent"></div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <div id="readerBodyOrder" class="text-xs font-semibold text-app-accent"></div>
+                <span id="readerTransEngineBadge" class="hidden"></span>
+              </div>
               <div class="flex items-center gap-1.5">
                 <button id="btnReaderCopyContent" type="button" title="คัดลอกเฉพาะเนื้อหานิยายตอนนี้"
                   class="px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
@@ -2059,12 +2062,50 @@
       }
     }
 
+    function getChapterTransBadgeHtml(ch, detailed = false) {
+      const hasTrans = Boolean(ch && ch.translatedContent && String(ch.translatedContent).trim());
+      if (!hasTrans) return '';
+      const eng = String(ch.transEngine || '').trim();
+
+      if (eng === 'ai' || eng.startsWith('ai:')) {
+        const model = eng.startsWith('ai:') ? eng.slice(3).trim() : '';
+        const label = detailed
+          ? `✨ แปลด้วย AI${model ? ` (${model})` : ''}`
+          : '✨ แปล AI';
+        const title = model ? `แปลด้วย Gemini AI (${model})` : 'แปลด้วย Gemini AI';
+        return `<span title="${escapeHtml(title)}" class="px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold shrink-0">${escapeHtml(label)}</span>`;
+      }
+      if (eng === 'free') {
+        const label = detailed ? '🌐 แปลด่วนฟรี (Google)' : '🌐 แปลฟรี';
+        return `<span title="แปลด่วนฟรีด้วย Google Translate" class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold shrink-0">${label}</span>`;
+      }
+      if (eng === 'manual') {
+        return `<span title="แก้ไข/แปลภาษาไทยด้วยตนเอง" class="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-semibold shrink-0">✍️ แปลเอง</span>`;
+      }
+      return `<span title="มีคำแปลไทยแล้ว (เวอร์ชันก่อนหน้า)" class="px-1.5 py-0.5 rounded-md bg-teal-500/15 text-teal-600 dark:text-teal-400 text-[10px] font-semibold shrink-0">🇹🇭 แปลแล้ว</span>`;
+    }
+
     function renderChaptersList() {
       const novel = getActiveNovel();
       if (!novel) return;
       const listEl = $('chaptersList');
       listEl.innerHTML = '';
-      $('detailChaptersHeading').textContent = `สารบัญตอน (${state.chapters.length} ตอน)`;
+
+      let aiCount = 0;
+      let freeCount = 0;
+      let otherTransCount = 0;
+      state.chapters.forEach((c) => {
+        if (!(c.translatedContent && String(c.translatedContent).trim())) return;
+        const eng = String(c.transEngine || '').trim();
+        if (eng === 'ai' || eng.startsWith('ai:')) aiCount++;
+        else if (eng === 'free') freeCount++;
+        else otherTransCount++;
+      });
+      const statParts = [`${state.chapters.length} ตอน`];
+      if (aiCount > 0) statParts.push(`✨ AI ${aiCount}`);
+      if (freeCount > 0) statParts.push(`🌐 ฟรี ${freeCount}`);
+      if (otherTransCount > 0) statParts.push(`🇹🇭 อื่นๆ ${otherTransCount}`);
+      $('detailChaptersHeading').textContent = `สารบัญตอน (${statParts.join(' • ')})`;
       $('btnSortChapters').textContent = state.chapterSortAsc ? 'เรียง: ตอนที่ 1 → ล่าสุด' : 'เรียง: ล่าสุด → ตอนที่ 1';
       $('reorderToolbar').classList.toggle('hidden', !state.reorderMode);
       $('btnToggleReorderMode').className = state.reorderMode
@@ -2107,7 +2148,7 @@
                 <div class="text-xs sm:text-sm font-medium text-app-main truncate">${escapeHtml(displayTitle)}</div>
                 ${ch.translatedTitle && ch.translatedTitle !== ch.title ? `<div class="text-[11px] text-app-sub truncate">${escapeHtml(ch.title)}</div>` : ''}
               </div>
-              ${hasTrans ? '<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold shrink-0">ไทย</span>' : ''}
+              ${hasTrans ? getChapterTransBadgeHtml(ch, false) : ''}
               ${isLast ? '<span class="px-2 py-0.5 rounded-full bg-app-accent text-white text-[10px] font-semibold shrink-0">อ่านค้าง</span>' : ''}
             </div>
             <div class="flex items-center gap-1 shrink-0">
@@ -2174,6 +2215,17 @@
 
       $('readerNovelTitle').textContent = novel.translatedTitle || novel.title;
       $('readerBodyOrder').textContent = `ตอนที่ ${Number(ch.order)}`;
+      const engineBadgeEl = $('readerTransEngineBadge');
+      if (engineBadgeEl) {
+        const badgeHtml = getChapterTransBadgeHtml(ch, true);
+        if (badgeHtml) {
+          engineBadgeEl.innerHTML = badgeHtml;
+          engineBadgeEl.classList.remove('hidden');
+        } else {
+          engineBadgeEl.innerHTML = '';
+          engineBadgeEl.classList.add('hidden');
+        }
+      }
       $('btnReaderClearTrans').classList.toggle('hidden', !(hasTrans || ch.translatedTitle));
 
       if (mode === 'orig') {
@@ -2289,10 +2341,17 @@
         const active = ch.id === state.activeChapterId;
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-2 transition ${
+        btn.className = `w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between gap-2 transition ${
           active ? 'bg-app-accent-soft text-app-accent font-bold' : 'text-app-main hover:bg-app-subtle'
         }`;
-        btn.innerHTML = `<span class="text-[11px] opacity-75 shrink-0">#${Number(ch.order)}</span><span class="truncate">${escapeHtml(ch.translatedTitle || ch.title)}</span>`;
+        const badgeHtml = getChapterTransBadgeHtml(ch, false);
+        btn.innerHTML = `
+          <div class="min-w-0 flex items-center gap-2">
+            <span class="text-[11px] opacity-75 shrink-0">#${Number(ch.order)}</span>
+            <span class="truncate">${escapeHtml(ch.translatedTitle || ch.title)}</span>
+          </div>
+          ${badgeHtml}
+        `;
         btn.addEventListener('click', () => {
           $('tocDrawerBackdrop').classList.add('hidden');
           openReaderChapter(ch.id, false);
@@ -2609,6 +2668,13 @@
 
           if (state.editingChapterId) {
             const existing = state.chapters.find((c) => c.id === state.editingChapterId);
+            if (!translatedContent) {
+              payload.transEngine = '';
+            } else if (translatedContent !== (existing?.translatedContent || '')) {
+              payload.transEngine = 'manual';
+            } else if (existing?.transEngine) {
+              payload.transEngine = existing.transEngine;
+            }
             await updateDoc(
               doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', state.editingChapterId),
               { ...payload, createdAt: existing?.createdAt || now }
@@ -2620,6 +2686,7 @@
             showToast('บันทึกการแก้ไขตอนแล้ว');
           } else {
             const fullPayload = { ...payload, createdAt: now };
+            if (translatedContent) fullPayload.transEngine = 'manual';
             await addDoc(collection(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters'), fullPayload);
             await loadChaptersForNovel(novel.id);
             await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id), {
@@ -2813,6 +2880,9 @@
           }
           if (ch?.translatedContent) {
             chPayload.translatedContent = String(ch.translatedContent).slice(0, 800000);
+          }
+          if (ch?.transEngine) {
+            chPayload.transEngine = String(ch.transEngine).slice(0, 60);
           }
           if (ch?.note) {
             chPayload.note = String(ch.note).slice(0, 20000);
@@ -3285,7 +3355,18 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return out;
     }
 
-    async function fetchGoogleFreeSegment(chunkText, sl) {
+    async function fetchGoogleFreeGetOnly(chunkText, sl) {
+      if (encodeURIComponent(chunkText).length > 1800 && chunkText.length > 120) {
+        const mid = Math.floor(chunkText.length / 2);
+        const splitPos = chunkText.indexOf('\n', mid) !== -1 && chunkText.indexOf('\n', mid) < mid + 200
+          ? chunkText.indexOf('\n', mid)
+          : mid;
+        const [a, b] = await Promise.all([
+          fetchGoogleFreeGetOnly(chunkText.slice(0, splitPos), sl),
+          fetchGoogleFreeGetOnly(chunkText.slice(splitPos), sl)
+        ]);
+        return `${a}${b}`;
+      }
       const q = encodeURIComponent(chunkText);
       try {
         const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${encodeURIComponent(sl)}&tl=th&q=${q}`;
@@ -3309,49 +3390,77 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       throw new Error('ไม่สามารถอ่านผลลัพธ์จาก Google Translate ได้');
     }
 
+    async function fetchGoogleFreeSegment(chunkText, sl) {
+      try {
+        const postUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=th&dt=t`;
+        const res = await fetch(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+          body: `q=${encodeURIComponent(chunkText)}`
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.[0])) {
+            return data[0].map((part) => (Array.isArray(part) ? part[0] || '' : '')).join('');
+          }
+        }
+      } catch (e) {}
+
+      return await fetchGoogleFreeGetOnly(chunkText, sl);
+    }
+
     async function translateTextViaGoogleFree(rawText, entries = []) {
       const lines = splitNonEmptyLines(rawText);
       if (lines.length === 0) return '';
       const sl = detectSourceLangCode(rawText);
       const tokenLines = lines.map((l) => applyGlossaryPlaceholders(l, entries));
 
+      const MAX_CHUNK_CHARS = 1400;
       const chunks = [];
       let current = [];
+      let currentLen = 0;
+
       for (const line of tokenLines) {
-        if (encodeURIComponent(line).length > 1800) {
+        if (line.length > MAX_CHUNK_CHARS) {
           if (current.length) {
             chunks.push(current.join('\n\n'));
             current = [];
+            currentLen = 0;
           }
-          // Split exceptionally long single paragraph into smaller sentence chunks
           let rest = line;
           while (rest.length > 0) {
-            let cut = Math.min(rest.length, 420);
-            while (cut > 80 && encodeURIComponent(rest.slice(0, cut)).length > 1800) {
-              cut -= 40;
+            let cut = Math.min(rest.length, 1100);
+            if (cut < rest.length) {
+              const punc = Math.max(rest.lastIndexOf('。', cut), rest.lastIndexOf('.', cut), rest.lastIndexOf(' ', cut));
+              if (punc > 400) cut = punc + 1;
             }
             chunks.push(rest.slice(0, cut));
             rest = rest.slice(cut);
           }
           continue;
         }
-        const candidate = [...current, line].join('\n\n');
-        if (current.length > 0 && encodeURIComponent(candidate).length > 1800) {
+        const addLen = current.length ? line.length + 2 : line.length;
+        if (current.length > 0 && currentLen + addLen > MAX_CHUNK_CHARS) {
           chunks.push(current.join('\n\n'));
           current = [line];
+          currentLen = line.length;
         } else {
           current.push(line);
+          currentLen += addLen;
         }
       }
       if (current.length) chunks.push(current.join('\n\n'));
 
-      const outChunks = [];
-      for (let i = 0; i < chunks.length; i++) {
-        const translatedChunk = await fetchGoogleFreeSegment(chunks[i], sl);
-        outChunks.push(restoreGlossaryPlaceholders(translatedChunk, entries));
-        if (i < chunks.length - 1) {
-          await new Promise((r) => setTimeout(r, 180));
-        }
+      const CONCURRENCY = 4;
+      const outChunks = new Array(chunks.length);
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        const translatedBatch = await Promise.all(
+          batch.map((c) => fetchGoogleFreeSegment(c, sl))
+        );
+        translatedBatch.forEach((txt, offset) => {
+          outChunks[i + offset] = restoreGlossaryPlaceholders(txt, entries);
+        });
       }
 
       return outChunks.join('\n\n').trim();
@@ -3651,23 +3760,29 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       let translatedContent = '';
       let rescuedParaCount = 0;
 
+      let transEngine = 'free';
       if (engine === 'ai') {
         const res = await translateChapterViaGemini(ch.title, ch.content, novel);
         translatedTitle = res.translatedTitle;
         translatedContent = res.translatedContent;
         rescuedParaCount = res.rescuedParaCount || 0;
+        let usedModel = (String(state.translator.geminiModel || '').trim() || 'gemini-2.5-flash').replace(/^models\//, '');
+        if (/-tts\b/i.test(usedModel)) usedModel = 'gemini-2.5-flash';
+        transEngine = `ai:${usedModel}`.slice(0, 60);
       } else {
         translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
         translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
+        transEngine = 'free';
       }
 
       const now = Date.now();
       await updateDoc(
         doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
-        { translatedTitle, translatedContent, updatedAt: now }
+        { translatedTitle, translatedContent, transEngine, updatedAt: now }
       );
       ch.translatedTitle = translatedTitle;
       ch.translatedContent = translatedContent;
+      ch.transEngine = transEngine;
       ch.updatedAt = now;
       ch._lastRescuedParaCount = rescuedParaCount;
       return ch;
@@ -3734,10 +3849,11 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         const now = Date.now();
         await updateDoc(
           doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
-          { translatedTitle: '', translatedContent: '', updatedAt: now }
+          { translatedTitle: '', translatedContent: '', transEngine: '', updatedAt: now }
         );
         ch.translatedTitle = '';
         ch.translatedContent = '';
+        ch.transEngine = '';
         ch.updatedAt = now;
         renderReaderChapterContent(ch);
         renderChaptersList();

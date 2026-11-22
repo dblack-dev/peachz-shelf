@@ -52,6 +52,7 @@ rules_version = '2';
 //      - translatedContent: string (optional, <= 800,000 chars)
 //      - wordCount: number (required, 0..2,000,000)
 //      - note: string (optional, <= 20,000 chars)
+//      - transEngine: string (optional, <= 60 chars)
 //      - createdAt: number (required, immutable after creation, 0..9,999,999,999,999)
 //      - updatedAt: number (required, 0..9,999,999,999,999)
 //
@@ -198,7 +199,7 @@ service cloud.firestore {
     function isValidChapter(data) {
       return hasOnlyAllowedFields(data, [
                'order', 'title', 'translatedTitle', 'content', 'translatedContent',
-               'wordCount', 'note', 'createdAt', 'updatedAt'
+               'wordCount', 'note', 'transEngine', 'createdAt', 'updatedAt'
              ]) &&
              hasRequiredFields(data, [
                'order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt'
@@ -210,6 +211,7 @@ service cloud.firestore {
              isValidOptionalString(data, 'translatedContent', 800000) &&
              data.wordCount is number && data.wordCount >= 0 && data.wordCount <= 2000000 &&
              isValidOptionalString(data, 'note', 20000) &&
+             isValidOptionalString(data, 'transEngine', 60) &&
              isValidEpochMs(data.createdAt) &&
              isValidEpochMs(data.updatedAt);
     }
