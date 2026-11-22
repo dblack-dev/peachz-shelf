@@ -1101,6 +1101,8 @@
 
     const PREFS_LOCAL_KEY = 'peachz_shelf_prefs_v1';
     const TRANS_LOCAL_KEY = 'peachz_translator_cfg_v1';
+    const ALLOWED_OWNER_UID = 'b1nmd1qyK0bd48iLLiBGMF3mtCi1';
+    const ALLOWED_OWNER_EMAIL = 'dew.blackdevil@gmail.com';
     const DEFAULT_TRANS_STYLE = 'แปลเป็นภาษาไทยสำนวนนิยายที่สละสลวย อ่านลื่นไหลเป็นธรรมชาติ ไม่แปลตรงตัวแข็งทื่อ รักษาการแบ่งย่อหน้าให้ตรงกับต้นฉบับ';
 
     const state = {
@@ -3733,12 +3735,24 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         return;
       }
 
+      const emailLower = String(user.email || '').toLowerCase();
+      if (user.uid !== ALLOWED_OWNER_UID && emailLower !== ALLOWED_OWNER_EMAIL) {
+        state.user = null;
+        await signOut(auth);
+        $('appShell').classList.add('hidden');
+        $('loginGate').classList.remove('hidden');
+        const warn = $('gateWarning');
+        warn.textContent = '⛔ คลังหนังสือส่วนตัว — อนุญาตเฉพาะบัญชีเจ้าของเท่านั้น';
+        warn.classList.remove('hidden');
+        return;
+      }
+
+      $('gateWarning').classList.add('hidden');
       $('loginGate').classList.add('hidden');
       $('appShell').classList.remove('hidden');
       renderUserHeader(user);
       showView('library');
       await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadNovels()]);
-      await autoSeedBundledNovelsIfNeeded();
     });
 
     getRedirectResult(auth).catch((err) => {

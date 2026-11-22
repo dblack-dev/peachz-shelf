@@ -5,9 +5,12 @@ rules_version = '2';
 // ===============================================================
 //
 // All user data is strictly isolated under /users/{userId}/...
-// No public or cross-user read/write access is permitted.
+// Access is strictly restricted to the single sole-owner account:
+//   - Email: dew.blackdevil@gmail.com
+//   - UID:   b1nmd1qyK0bd48iLLiBGMF3mtCi1
+// No public, multi-user, or cross-user read/write access is permitted.
 // Ownership is derived solely from the authenticated Firebase Auth UID
-// matching {userId} (no client-supplied uid/role fields are trusted).
+// matching both the sole-owner UID and {userId} (no client-supplied uid/role fields are trusted).
 //
 // 1. Collection: users/{userId}/sync/{docId}
 //    (Preserved for existing apps: Peachz Haus Studio, noveltransstudio, pomehelpmami)
@@ -93,9 +96,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Check if the authenticated user owns the path under /users/{userId}
+    // Check if the authenticated user is the sole owner and owns the path under /users/{userId}
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isAuthenticated() &&
+             request.auth.uid == 'b1nmd1qyK0bd48iLLiBGMF3mtCi1' &&
+             request.auth.uid == userId;
     }
 
     // Enforce strict schema (no extraneous fields)
