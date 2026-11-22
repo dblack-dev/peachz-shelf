@@ -1,0 +1,214 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// All user data is strictly isolated under /users/{userId}/...
+// No public or cross-user read/write access is permitted.
+// Ownership is derived solely from the authenticated Firebase Auth UID
+// matching {userId} (no client-supplied uid/role fields are trusted).
+//
+// 1. Collection: users/{userId}/sync/{docId}
+//    (Preserved for existing apps: Peachz Haus Studio, noveltransstudio, pomehelpmami)
+//    Fields (all required):
+//      - stateJson: string (<= 1,000,000 chars) - serialized app sync payload
+//      - updatedAt: number - epoch timestamp in milliseconds
+//      - updatedBy: string (<= 128 chars) - client/app identifier
+//
+// 2. Collection: users/{userId}/readerNovels/{novelId}
+//    Fields:
+//      - title: string (required, 1..200 chars)
+//      - status: string (required, enum: 'reading' | 'completed' | 'plan')
+//      - isFavorite: bool (required)
+//      - chapterCount: number (required, 0..1,000,000)
+//      - createdAt: number (required, immutable after creation, 0..9,999,999,999,999)
+//      - updatedAt: number (required, 0..9,999,999,999,999)
+//      - author: string (optional, <= 120 chars)
+//      - coverUrl: string (optional, <= 1,000 chars)
+//      - synopsis: string (optional, <= 5,000 chars)
+//      - tags: list<string> (optional, <= 20 items, each string <= 120 chars)
+//      - notes: string (optional, <= 25,000 chars)
+//      - lastChapterId: string (optional, <= 128 chars)
+//      - lastChapterTitle: string (optional, <= 200 chars)
+//      - lastChapterOrder: number (optional, 0..1,000,000)
+//      - lastScrollRatio: number (optional, 0..1)
+//
+// 3. Collection: users/{userId}/readerNovels/{novelId}/chapters/{chapterId}
+//    Fields (all required):
+//      - order: number (0..1,000,000)
+//      - title: string (1..200 chars)
+//      - content: string (<= 800,000 chars)
+//      - wordCount: number (0..2,000,000)
+//      - createdAt: number (immutable after creation, 0..9,999,999,999,999)
+//      - updatedAt: number (0..9,999,999,999,999)
+//
+// 4. Collection: users/{userId}/readerMeta/{docId}
+//    Fields (all required):
+//      - theme: string (enum: 'light' | 'sepia' | 'dark')
+//      - fontFamily: string (enum: 'sarabun' | 'noto' | 'prompt')
+//      - fontSize: number (12..36)
+//      - lineHeight: number (1.2..3.0)
+//      - maxWidth: number (480..1200)
+//      - updatedAt: number (0..9,999,999,999,999)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all paths unless explicitly matched and allowed below
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user owns the path under /users/{userId}
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Enforce strict schema (no extraneous fields)
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    // Enforce presence of all required fields
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+
+    // Validate bounded epoch millisecond number (blocks negative, NaN, Infinity)
+    function isValidEpochMs(val) {
+      return val is number && val >= 0 && val <= 9999999999999;
+    }
+
+    // Validate individual tag element if present at index
+    function isValidTagItem(tags, idx) {
+      return tags.size() <= idx || (tags[idx] is string && tags[idx].size() <= 120);
+    }
+
+    // Validate tags list (max 20 items, every element must be a bounded string)
+    function isValidTagList(tags) {
+      return tags is list &&
+             tags.size() <= 20 &&
+             isValidTagItem(tags, 0) && isValidTagItem(tags, 1) &&
+             isValidTagItem(tags, 2) && isValidTagItem(tags, 3) &&
+             isValidTagItem(tags, 4) && isValidTagItem(tags, 5) &&
+             isValidTagItem(tags, 6) && isValidTagItem(tags, 7) &&
+             isValidTagItem(tags, 8) && isValidTagItem(tags, 9) &&
+             isValidTagItem(tags, 10) && isValidTagItem(tags, 11) &&
+             isValidTagItem(tags, 12) && isValidTagItem(tags, 13) &&
+             isValidTagItem(tags, 14) && isValidTagItem(tags, 15) &&
+             isValidTagItem(tags, 16) && isValidTagItem(tags, 17) &&
+             isValidTagItem(tags, 18) && isValidTagItem(tags, 19);
+    }
+
+    // ===============================================================
+    // Domain Validators (Used in BOTH create and update)
+    // ===============================================================
+
+    // Validator for existing sync docs (Peachz Haus Studio, noveltransstudio, pomehelpmami)
+    function isValidSyncDoc(data) {
+      return hasOnlyAllowedFields(data, ['stateJson', 'updatedAt', 'updatedBy']) &&
+             hasRequiredFields(data, ['stateJson', 'updatedAt', 'updatedBy']) &&
+             data.stateJson is string && data.stateJson.size() <= 1000000 &&
+             data.updatedAt is number &&
+             data.updatedBy is string && data.updatedBy.size() <= 128;
+    }
+
+    // Validator for Private Novel Reader novel metadata
+    function isValidNovel(data) {
+      return hasOnlyAllowedFields(data, [
+               'title', 'author', 'coverUrl', 'synopsis', 'tags',
+               'status', 'isFavorite', 'notes', 'chapterCount',
+               'lastChapterId', 'lastChapterTitle', 'lastChapterOrder',
+               'lastScrollRatio', 'createdAt', 'updatedAt'
+             ]) &&
+             hasRequiredFields(data, [
+               'title', 'status', 'isFavorite', 'chapterCount', 'createdAt', 'updatedAt'
+             ]) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.status in ['reading', 'completed', 'plan'] &&
+             data.isFavorite is bool &&
+             data.chapterCount is number && data.chapterCount >= 0 && data.chapterCount <= 1000000 &&
+             isValidEpochMs(data.createdAt) &&
+             isValidEpochMs(data.updatedAt) &&
+             (!('author' in data) || (data.author is string && data.author.size() <= 120)) &&
+             (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 1000)) &&
+             (!('synopsis' in data) || (data.synopsis is string && data.synopsis.size() <= 5000)) &&
+             (!('tags' in data) || isValidTagList(data.tags)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 25000)) &&
+             (!('lastChapterId' in data) || (data.lastChapterId is string && data.lastChapterId.size() <= 128)) &&
+             (!('lastChapterTitle' in data) || (data.lastChapterTitle is string && data.lastChapterTitle.size() <= 200)) &&
+             (!('lastChapterOrder' in data) || (data.lastChapterOrder is number && data.lastChapterOrder >= 0 && data.lastChapterOrder <= 1000000)) &&
+             (!('lastScrollRatio' in data) || (data.lastScrollRatio is number && data.lastScrollRatio >= 0 && data.lastScrollRatio <= 1));
+    }
+
+    // Validator for Private Novel Reader chapter documents
+    function isValidChapter(data) {
+      return hasOnlyAllowedFields(data, ['order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt']) &&
+             hasRequiredFields(data, ['order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt']) &&
+             data.order is number && data.order >= 0 && data.order <= 1000000 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 800000 &&
+             data.wordCount is number && data.wordCount >= 0 && data.wordCount <= 2000000 &&
+             isValidEpochMs(data.createdAt) &&
+             isValidEpochMs(data.updatedAt);
+    }
+
+    // Validator for Private Novel Reader user preferences
+    function isValidReaderPrefs(data) {
+      return hasOnlyAllowedFields(data, ['theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth', 'updatedAt']) &&
+             hasRequiredFields(data, ['theme', 'fontFamily', 'fontSize', 'lineHeight', 'maxWidth', 'updatedAt']) &&
+             data.theme in ['light', 'sepia', 'dark'] &&
+             data.fontFamily in ['sarabun', 'noto', 'prompt'] &&
+             data.fontSize is number && data.fontSize >= 12 && data.fontSize <= 36 &&
+             data.lineHeight is number && data.lineHeight >= 1.2 && data.lineHeight <= 3.0 &&
+             data.maxWidth is number && data.maxWidth >= 480 && data.maxWidth <= 1200 &&
+             isValidEpochMs(data.updatedAt);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Existing apps sync documents (preserved without breaking legacy clients)
+    match /users/{userId}/sync/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidSyncDoc(request.resource.data);
+    }
+
+    // Private Novel Reader: Novel shelf items
+    match /users/{userId}/readerNovels/{novelId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidNovel(request.resource.data);
+      allow update: if isOwner(userId) &&
+                       isValidNovel(request.resource.data) &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Private Novel Reader: Novel chapters
+    match /users/{userId}/readerNovels/{novelId}/chapters/{chapterId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidChapter(request.resource.data);
+      allow update: if isOwner(userId) &&
+                       isValidChapter(request.resource.data) &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Private Novel Reader: Cloud reading preferences
+    match /users/{userId}/readerMeta/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidReaderPrefs(request.resource.data);
+    }
+  }
+}
