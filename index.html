@@ -123,6 +123,14 @@
     .reader-content p.dual-th {
       margin-bottom: 0;
     }
+
+    .reader-content p.tts-active-para {
+      background: rgba(225, 29, 72, 0.12);
+      border-radius: 0.65rem;
+      padding: 0.25rem 0.55rem;
+      box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -312,6 +320,18 @@
           <button id="btnOpenGlossary" type="button"
             class="px-3 py-2 rounded-xl bg-app-accent-soft text-app-accent text-xs font-semibold hover:opacity-90 transition">
             📖 ศัพท์ / ตัวละคร
+          </button>
+          <button id="btnOpenCharacterWiki" type="button"
+            class="px-3 py-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold hover:opacity-90 transition">
+            🧬 สารานุกรมตัวละคร
+          </button>
+          <button id="btnOpenStoryRecap" type="button"
+            class="px-3 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:opacity-90 transition">
+            🔄 ทบทวนก่อนอ่าน (กันสปอยล์)
+          </button>
+          <button id="btnOpenNovelChat" type="button"
+            class="px-3 py-2 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs font-semibold hover:opacity-90 transition">
+            💬 ถาม AI เกี่ยวกับเรื่องนี้
           </button>
           <button id="btnTranslateNovelMetaAndToc" type="button"
             class="px-3 py-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-90 transition">
@@ -527,6 +547,47 @@
         </div>
       </div>
 
+      <!-- Sticky Thai Audio Reader / TTS Player Bar -->
+      <div id="ttsPlayerBar" class="hidden sticky top-14 z-20 bg-app-surface/95 backdrop-blur border-b border-app px-3 sm:px-5 py-2.5 shadow-sm">
+        <div class="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-1.5">
+            <button id="btnTtsPrevPara" type="button" title="ย่อหน้าก่อนหน้า"
+              class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
+              ⏮
+            </button>
+            <button id="btnTtsPlayPause" type="button"
+              class="px-3.5 py-1.5 rounded-xl bg-app-accent text-white font-semibold shadow-sm hover:opacity-95 transition">
+              ▶️ อ่านเสียง
+            </button>
+            <button id="btnTtsNextPara" type="button" title="ย่อหน้าถัดไป"
+              class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app font-semibold text-app-main hover:opacity-85 transition">
+              ⏭
+            </button>
+            <button id="btnTtsStop" type="button" title="หยุดและปิดแถบฟังเสียง"
+              class="px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 font-semibold hover:bg-rose-500/20 transition">
+              ⏹ หยุด
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="ttsStatusLabel" class="text-[11px] font-medium text-app-sub">พร้อมอ่านออกเสียง</span>
+            <select id="selectTtsRate" title="ความเร็วเสียงอ่าน"
+              class="py-1 px-2 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main focus:outline-none">
+              <option value="0.75">0.75x</option>
+              <option value="0.9">0.9x</option>
+              <option value="1" selected>1.0x</option>
+              <option value="1.15">1.15x</option>
+              <option value="1.3">1.3x</option>
+              <option value="1.5">1.5x</option>
+              <option value="1.8">1.8x</option>
+            </select>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-app-main">
+              <input id="chkTtsAutoNext" type="checkbox" checked class="rounded text-rose-500" />
+              <span>ต่อตอนถัดไปอัตโนมัติ</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <!-- Reader Paper Container -->
       <div class="flex-1 reader-paper py-6 sm:py-10 px-4 sm:px-6">
         <article id="readerArticle" class="mx-auto space-y-6" style="max-width: 740px;">
@@ -565,6 +626,22 @@
                 <button id="btnReaderGlossary" type="button" title="จัดการคำศัพท์/ชื่อตัวละครประจำเรื่อง"
                   class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-[11px] sm:text-xs font-semibold text-app-main hover:opacity-85 transition">
                   📖 ศัพท์เรื่องนี้
+                </button>
+                <button id="btnReaderCharacterWiki" type="button" title="สารานุกรมตัวละครและโลกของเรื่อง"
+                  class="px-2.5 py-1.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[11px] sm:text-xs font-semibold hover:opacity-90 transition">
+                  🧬 ตัวละคร
+                </button>
+                <button id="btnReaderStoryRecap" type="button" title="ให้ AI ทบทวนเนื้อเรื่องก่อนถึงตอนนี้ (กันสปอยล์)"
+                  class="px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] sm:text-xs font-semibold hover:opacity-90 transition">
+                  🔄 ทบทวน
+                </button>
+                <button id="btnReaderNovelChat" type="button" title="ถาม AI เกี่ยวกับนิยายเรื่องนี้ (กันสปอยล์)"
+                  class="px-2.5 py-1.5 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[11px] sm:text-xs font-semibold hover:opacity-90 transition">
+                  💬 ถาม AI
+                </button>
+                <button id="btnReaderToggleTts" type="button" title="เปิดระบบอ่านออกเสียงนิยายภาษาไทย (TTS)"
+                  class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-[11px] sm:text-xs font-semibold text-app-main hover:opacity-85 transition">
+                  🔊 ฟังเสียง
                 </button>
                 <button id="btnReaderClearTrans" type="button" title="ล้างเฉพาะคำแปลไทยของตอนนี้ (ต้นฉบับยังอยู่ครบ)"
                   class="hidden px-2.5 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 text-[11px] sm:text-xs font-semibold hover:bg-rose-500/20 transition">
@@ -776,7 +853,14 @@
         </div>
         <button id="btnCloseChapterNoteModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
       </div>
-      <div class="p-5 overflow-y-auto flex-1">
+      <div class="p-5 overflow-y-auto flex-1 space-y-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <span class="text-[11px] text-app-sub">บันทึกโน้ตเอง หรือให้ AI สรุปเหตุการณ์สำคัญของตอนนี้ให้ทันที</span>
+          <button id="btnAiSummarizeChapter" type="button"
+            class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition shrink-0">
+            ✨ ให้ AI สรุปตอนนี้
+          </button>
+        </div>
         <textarea id="inputChapterNote" rows="8" maxlength="20000" placeholder="ใส่เรื่องย่อของตอนนี้, จุดสำคัญ, ปมที่ต้องจำ, หรือข้อมูลเพิ่มเติมที่อยากจดไว้..."
           class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
       </div>
@@ -807,10 +891,16 @@
           <input id="chkOnlyWithSummary" type="checkbox" class="rounded text-rose-500" />
           <span>แสดงเฉพาะตอนที่มีโน้ต/เรื่องย่อ</span>
         </label>
-        <button id="btnCopyAllSummaries" type="button"
-          class="px-3 py-1.5 rounded-xl bg-app-accent-soft text-app-accent font-semibold hover:opacity-90 transition">
-          📋 คัดลอกเรื่องย่อทั้งหมด
-        </button>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button id="btnAiSummarizeMissingNotes" type="button"
+            class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-sm transition">
+            ✨ ให้ AI สรุปตอนที่ยังไม่มีโน้ต (สูงสุด 5 ตอนต่อครั้ง)
+          </button>
+          <button id="btnCopyAllSummaries" type="button"
+            class="px-3 py-1.5 rounded-xl bg-app-accent-soft text-app-accent font-semibold hover:opacity-90 transition">
+            📋 คัดลอกเรื่องย่อทั้งหมด
+          </button>
+        </div>
       </div>
       <div id="allSummariesList" class="p-5 space-y-3 overflow-y-auto flex-1"></div>
     </div>
@@ -1041,6 +1131,216 @@
     </div>
   </div>
 
+  <!-- =====================================================================
+       FLOATING TOOLBAR: HIGHLIGHT SELECTION AI ACTIONS (READER VIEW)
+       ===================================================================== -->
+  <div id="highlightAiToolbar" class="hidden fixed z-40 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-white/15 px-2 py-1.5 flex items-center gap-1 flex-wrap max-w-[92vw]">
+    <button id="btnHighlightPolish" type="button"
+      class="px-2.5 py-1 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-semibold transition">
+      ✨ เกลาสำนวน
+    </button>
+    <button id="btnHighlightExplain" type="button"
+      class="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold transition">
+      💡 อธิบายสำนวน/บริบท
+    </button>
+    <button id="btnHighlightAddGlossary" type="button"
+      class="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition">
+      📖 เพิ่มเข้าคำศัพท์
+    </button>
+    <button id="btnHighlightClose" type="button" title="ปิดแถบเครื่องมือ"
+      class="px-2 py-1 rounded-xl text-white/70 hover:text-white hover:bg-white/10 text-[11px] font-bold transition">
+      ✕
+    </button>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: AI STORY RECAP (ANTI-SPOILER)
+       ===================================================================== -->
+  <div id="recapModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-5 py-4 border-b border-app flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <h3 class="font-bold text-base text-app-main">🔄 ทบทวนเนื้อเรื่องก่อนอ่าน (กันสปอยล์)</h3>
+          <p id="recapModalSubtitle" class="text-[11px] text-app-sub truncate">สรุปเหตุการณ์ที่ผ่านมาโดยไม่อ่านเลยตอนที่กำหนด</p>
+        </div>
+        <button id="btnCloseRecapModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <div class="p-3.5 rounded-2xl bg-app-subtle border border-app space-y-2.5">
+          <div class="space-y-1">
+            <label for="selectRecapUpToOrder" class="font-semibold text-app-main block">🛡️ ทบทวนเนื้อหาถึงตอนที่เท่าไหร่? (AI จะไม่เห็นตอนถัดไป)</label>
+            <select id="selectRecapUpToOrder" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs font-medium focus:outline-none"></select>
+          </div>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-[11px] text-app-sub">ดึงจากเรื่องย่อรายตอน + เนื้อหาเท่าที่อ่านถึง เพื่อกันสปอยล์ 100%</span>
+            <button id="btnGenerateRecap" type="button"
+              class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+              ✨ ให้ AI สรุปทบทวน
+            </button>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label for="inputStoryRecap" class="font-semibold text-app-main text-xs">ข้อความสรุปทบทวน (แก้ไขเองหรือเก็บไว้อ่านทีหลังได้)</label>
+          <textarea id="inputStoryRecap" rows="10" maxlength="30000" placeholder="กดปุ่ม 'ให้ AI สรุปทบทวน' ด้านบน หรือจดบันทึกสรุปก่อนหยุดอ่านไว้ที่นี่..."
+            class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 border-t border-app flex items-center justify-end gap-2">
+        <button id="btnCancelRecapModal" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ปิด</button>
+        <button id="btnSaveStoryRecap" type="button" class="px-5 py-2 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm">💾 บันทึกสรุปไว้ทบทวน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: ASK AI ABOUT THIS NOVEL (ANTI-SPOILER CHAT)
+       ===================================================================== -->
+  <div id="novelChatModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] max-h-[88vh]">
+      <div class="px-5 py-3.5 border-b border-app flex items-center justify-between gap-2 shrink-0">
+        <div class="min-w-0">
+          <h3 class="font-bold text-base text-app-main">💬 ถาม AI เกี่ยวกับนิยายเรื่องนี้</h3>
+          <p id="novelChatSubtitle" class="text-[11px] text-app-sub truncate"></p>
+        </div>
+        <button id="btnCloseNovelChatModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
+      </div>
+      <div class="px-5 py-2.5 border-b border-app bg-app-subtle/60 flex items-center justify-between gap-2 flex-wrap text-xs shrink-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none font-semibold text-app-main">
+            <input id="chkChatNoSpoiler" type="checkbox" checked class="rounded text-indigo-600" />
+            <span>🛡️ โหมดกันสปอยล์ ถึง:</span>
+          </label>
+          <select id="selectChatMaxOrder" class="max-w-[190px] px-2.5 py-1 rounded-xl bg-app-surface border border-app text-[11px] font-medium text-app-main focus:outline-none"></select>
+        </div>
+        <button id="btnClearNovelChat" type="button"
+          class="px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-500 text-[11px] font-semibold hover:bg-rose-500/20 transition">
+          🧹 ล้างแชท
+        </button>
+      </div>
+      <div class="px-5 py-2 border-b border-app flex items-center gap-1.5 flex-wrap shrink-0">
+        <button type="button" data-chat-quick="สรุปความสัมพันธ์ของตัวละครหลักถึงตอนนี้ให้เข้าใจง่ายๆ หน่อย"
+          class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-rose-400 transition">
+          🤝 ความสัมพันธ์ตัวละคร
+        </button>
+        <button type="button" data-chat-quick="ตอนนี้ตัวเอกกำลังเจอสถานการณ์อะไรอยู่ และมีเป้าหมายอะไร?"
+          class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-rose-400 transition">
+          🧭 สถานการณ์ล่าสุด
+        </button>
+        <button type="button" data-chat-quick="มีปมปริศนาหรือคำใบ้อะไรที่โผล่มาแล้วยังไม่เฉลยบ้าง?"
+          class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-rose-400 transition">
+          🧩 ปมที่ยังไม่เฉลย
+        </button>
+        <button type="button" data-chat-quick="สรุปรายชื่อตัวละครที่โผล่มาแล้วพร้อมบทบาทสั้นๆ"
+          class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-rose-400 transition">
+          👥 ตัวละครที่ปรากฏตัวแล้ว
+        </button>
+      </div>
+      <div id="novelChatMessages" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 text-xs sm:text-sm"></div>
+      <div class="p-3.5 sm:px-5 border-t border-app flex items-end gap-2 shrink-0 bg-app-surface">
+        <textarea id="inputNovelChatPrompt" rows="2" placeholder="พิมพ์คำถามเกี่ยวกับเรื่องนี้... (Enter ส่ง / Shift+Enter ขึ้นบรรทัดใหม่)"
+          class="flex-1 p-2.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"></textarea>
+        <button id="btnSendNovelChat" type="button"
+          class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shrink-0 transition">
+          ส่งคำถาม
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: HIGHLIGHT AI POLISH / EXPLAIN IDIOMS
+       ===================================================================== -->
+  <div id="highlightAiModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-5 py-4 border-b border-app flex items-center justify-between gap-2">
+        <h3 id="highlightAiModalTitle" class="font-bold text-base text-app-main">✨ AI ช่วยเกลาสำนวน / อธิบาย</h3>
+        <button id="btnCloseHighlightAiModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <div class="space-y-1">
+          <div class="text-[11px] font-semibold text-app-sub">ข้อความที่เลือกไว้:</div>
+          <div id="highlightSelectedText" class="p-3 rounded-2xl bg-app-subtle border border-app text-xs text-app-main whitespace-pre-wrap max-h-28 overflow-y-auto leading-relaxed"></div>
+        </div>
+        <div id="highlightPolishToneWrap" class="space-y-2">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-[11px] font-semibold text-app-sub">เลือกแนวสำนวนที่ต้องการเกลาใหม่:</span>
+            <button id="btnRunHighlightPolish" type="button"
+              class="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold shadow-sm transition">
+              ✨ รัน AI ใหม่
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" data-polish-tone="สละสลวยแบบนิยายวรรณศิลป์ อ่านลื่นละมุน"
+              class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition">
+              🌸 สละสลวยแบบนิยาย
+            </button>
+            <button type="button" data-polish-tone="ภาษาพูดธรรมชาติ เข้าใจง่าย ไม่อ่านเหมือนแปลตรงตัว"
+              class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition">
+              💬 ธรรมชาติลื่นไหล
+            </button>
+            <button type="button" data-polish-tone="กระชับ คมคาย จริงจัง หนักแน่น"
+              class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition">
+              ⚡ กระชับหนักแน่น
+            </button>
+            <button type="button" data-polish-tone="อารมณ์เข้มข้น ดราม่า ลึกซึ้งกินใจ"
+              class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition">
+              🔥 ดราม่าเข้มข้น
+            </button>
+            <button type="button" data-polish-tone="น่ารัก กวนๆ ขบขัน เบาสมอง"
+              class="px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition">
+              😄 กวน/เบาสมอง
+            </button>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label for="inputHighlightAiResult" class="font-semibold text-app-main text-xs">ผลลัพธ์จาก AI (ปรับแก้ไขก่อนนำไปใช้ได้):</label>
+          <textarea id="inputHighlightAiResult" rows="7" placeholder="รอ AI ประมวลผล..."
+            class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 border-t border-app flex items-center justify-between gap-2 flex-wrap">
+        <button id="btnCopyHighlightAiResult" type="button" class="px-3.5 py-2 rounded-xl bg-app-subtle border border-app text-app-main text-xs font-semibold">📋 คัดลอกผลลัพธ์</button>
+        <div class="flex items-center gap-2">
+          <button id="btnCancelHighlightAiModal" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ปิด</button>
+          <button id="btnApplyHighlightReplace" type="button" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm">✅ แทนที่คำแปลในตอนนี้</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: AI CHARACTER WIKI & WORLD LORE
+       ===================================================================== -->
+  <div id="characterWikiModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-5 py-4 border-b border-app flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <h3 class="font-bold text-base text-app-main">🧬 สารานุกรมตัวละคร &amp; ข้อมูลเรื่อง (Wiki)</h3>
+          <p id="characterWikiSubtitle" class="text-[11px] text-app-sub truncate"></p>
+        </div>
+        <button id="btnCloseCharacterWikiModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <div class="p-3.5 rounded-2xl bg-app-subtle border border-app flex items-center justify-between gap-2 flex-wrap">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-xs font-medium text-app-main">
+            <input id="chkWikiNoSpoiler" type="checkbox" checked class="rounded text-indigo-600" />
+            <span>🛡️ สกัดข้อมูลเฉพาะถึงตอนที่อ่านอยู่/ล่าสุด (กันสปอยล์)</span>
+          </label>
+          <button id="btnAiGenerateWiki" type="button"
+            class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition shrink-0">
+            ✨ ให้ AI สกัด/อัปเดต Wiki
+          </button>
+        </div>
+        <textarea id="inputCharacterWiki" rows="13" maxlength="50000" placeholder="กดปุ่ม 'ให้ AI สกัด/อัปเดต Wiki' เพื่อให้ AI รวบรวมประวัติตัวละคร ฉายา ความสัมพันธ์ และข้อมูลเซ็ตติ้งของเรื่องนี้ให้อัตโนมัติ หรือพิมพ์จดเองได้เลย..."
+          class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
+      </div>
+      <div class="px-5 py-3.5 border-t border-app flex items-center justify-end gap-2">
+        <button id="btnCancelCharacterWikiModal" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ยกเลิก</button>
+        <button id="btnSaveCharacterWiki" type="button" class="px-5 py-2 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm">💾 บันทึกสารานุกรม</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-medium shadow-xl pointer-events-none opacity-0 transition-opacity duration-200 max-w-[90vw] text-center"></div>
 
@@ -1146,7 +1446,17 @@
         lineHeight: 1.95,
         maxWidth: 740,
         readLangMode: 'orig'
-      }
+      },
+      novelChatHistory: [],
+      highlightSelectionText: '',
+      highlightMode: 'polish',
+      highlightTone: 'สละสลวยแบบนิยายวรรณศิลป์ อ่านลื่นละมุน',
+      ttsOpen: false,
+      ttsPlaying: false,
+      ttsPaused: false,
+      ttsParaIndex: 0,
+      ttsRate: 1,
+      ttsSessionId: 0
     };
 
     const STATUS_LABELS = {
@@ -1507,6 +1817,8 @@
       if (viewName !== 'reader') {
         $('readerSettingsPanel').classList.add('hidden');
         $('btnScrollTop').classList.add('hidden');
+        if (typeof hideHighlightAiToolbar === 'function') hideHighlightAiToolbar();
+        if (typeof stopTts === 'function') stopTts(true);
       }
     }
 
@@ -1673,6 +1985,9 @@
     // RENDER NOVEL DETAIL & CHAPTERS
     // =====================================================================
     async function openNovelDetail(novelId) {
+      if (state.activeNovelId !== novelId) {
+        state.novelChatHistory = [];
+      }
       state.activeNovelId = novelId;
       state.reorderMode = false;
       $('inputSearchInNovel').value = '';
@@ -1893,7 +2208,7 @@
       applyReaderPrefsUI();
     }
 
-    function openReaderChapter(chapterId, restoreScroll = false) {
+    function openReaderChapter(chapterId, restoreScroll = false, keepTtsPlaying = false) {
       const novel = getActiveNovel();
       const idx = state.chapters.findIndex((c) => c.id === chapterId);
       if (!novel || idx === -1) {
@@ -1901,12 +2216,28 @@
         return;
       }
 
+      if (typeof hideHighlightAiToolbar === 'function') hideHighlightAiToolbar();
+      const wasTtsOpen = state.ttsOpen;
+      if (!keepTtsPlaying && typeof stopTts === 'function') {
+        stopTts(!wasTtsOpen);
+      }
+
       const ch = state.chapters[idx];
       state.activeChapterId = ch.id;
       showView('reader');
 
+      if (wasTtsOpen && !keepTtsPlaying && typeof openTtsBarStatePreserve === 'function') {
+        openTtsBarStatePreserve();
+      }
+
       renderReaderChapterContent(ch);
       updateReaderNoteIndicator(ch);
+
+      if (keepTtsPlaying && state.ttsOpen && typeof ttsSpeakIndex === 'function') {
+        setTimeout(() => ttsSpeakIndex(0), 120);
+      } else if (typeof setTtsStatusText === 'function') {
+        setTtsStatusText();
+      }
 
       const prevBtn = $('btnPrevChapter');
       const nextBtn = $('btnNextChapter');
@@ -2431,6 +2762,8 @@
         notes: String(srcNovel.notes || '').slice(0, 25000),
         glossary: String(srcNovel.glossary || '').slice(0, 50000),
         transStyle: String(srcNovel.transStyle || '').slice(0, 1000),
+        characterWiki: String(srcNovel.characterWiki || '').slice(0, 50000),
+        storyRecap: String(srcNovel.storyRecap || '').slice(0, 30000),
         chapterCount: srcChapters.length,
         lastChapterId: '',
         lastChapterTitle: '',
@@ -4132,6 +4465,9 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
 
     document.querySelectorAll('[data-read-lang]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        if (typeof stopTts === 'function' && (state.ttsPlaying || state.ttsPaused)) {
+          stopTts(!state.ttsOpen);
+        }
         const mode = btn.getAttribute('data-read-lang');
         state.prefs.readLangMode = mode;
         savePrefs(true);
@@ -4142,6 +4478,1027 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     $('btnReaderTransFree').addEventListener('click', () => triggerReaderTranslate('free'));
     $('btnReaderTransAi').addEventListener('click', () => triggerReaderTranslate('ai'));
     $('btnReaderClearTrans').addEventListener('click', clearChapterTranslation);
+
+    // =====================================================================
+    // AI SUITE & THAI AUDIO READER (ALL 6 FEATURES)
+    // =====================================================================
+    function requireGeminiKeyOrOpenSettings(featureLabel) {
+      if (String(state.translator.geminiApiKey || '').trim()) return true;
+      showToast(`ฟีเจอร์${featureLabel}ต้องใส่ Gemini API Key ก่อนครับ`);
+      openTransSettingsModal();
+      return false;
+    }
+
+    function getBestChapterText(ch, maxChars = 18000) {
+      if (!ch) return { text: '', isTranslated: false };
+      const th = String(ch.translatedContent || '').trim();
+      const orig = String(ch.content || '').trim();
+      if (th) return { text: th.slice(0, maxChars), isTranslated: true };
+      return { text: orig.slice(0, maxChars), isTranslated: false };
+    }
+
+    function getSortedChaptersAsc() {
+      return [...state.chapters].sort((a, b) => Number(a.order) - Number(b.order));
+    }
+
+    function getDefaultSpoilerCutoffOrder(includeCurrentInReader = true) {
+      const sorted = getSortedChaptersAsc();
+      if (sorted.length === 0) return 0;
+      const novel = getActiveNovel();
+      if (!$('viewReader').classList.contains('hidden') && state.activeChapterId) {
+        const idx = sorted.findIndex((c) => c.id === state.activeChapterId);
+        if (idx !== -1) {
+          if (includeCurrentInReader) return Number(sorted[idx].order);
+          return Number(sorted[Math.max(0, idx - 1)].order);
+        }
+      }
+      if (novel && Number(novel.lastChapterOrder) > 0) {
+        const match = sorted.find((c) => Number(c.order) === Number(novel.lastChapterOrder));
+        if (match) return Number(match.order);
+      }
+      return Number(sorted[sorted.length - 1].order);
+    }
+
+    function buildNovelContextUpTo(novel, maxOrder = null, charBudget = 32000, includeWiki = false) {
+      if (!novel) return '';
+      const sorted = getSortedChaptersAsc().filter((c) => maxOrder == null || Number(c.order) <= Number(maxOrder));
+      const glossary = String(novel.glossary || '').trim().slice(0, 3500);
+      const synopsis = String(novel.translatedSynopsis || novel.synopsis || '').trim().slice(0, 2000);
+      const notes = String(novel.notes || '').trim().slice(0, 2000);
+      const wiki = includeWiki ? String(novel.characterWiki || '').trim().slice(0, 4500) : '';
+
+      const headerParts = [
+        `ชื่อเรื่อง: ${novel.translatedTitle || novel.title}`,
+        novel.author ? `ผู้แต่ง: ${novel.author}` : '',
+        Array.isArray(novel.tags) && novel.tags.length ? `แท็ก: ${novel.tags.join(', ')}` : '',
+        synopsis ? `คำโปรย/เรื่องย่อ:\n${synopsis}` : '',
+        glossary ? `สมุดคำศัพท์/ชื่อตัวละครเฉพาะ:\n${glossary}` : '',
+        notes ? `โน้ตส่วนตัวของผู้อ่าน:\n${notes}` : '',
+        wiki ? `สารานุกรมตัวละครปัจจุบัน:\n${wiki}` : ''
+      ].filter(Boolean);
+
+      const headerText = headerParts.join('\n\n');
+      let remaining = Math.max(4000, charBudget - headerText.length);
+
+      if (sorted.length === 0) {
+        return `${headerText}\n\n(ยังไม่มีตอนในขอบเขตนี้)`;
+      }
+
+      const chapterBlocksRev = [];
+      let skippedCount = 0;
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const ch = sorted[i];
+        const distFromEnd = (sorted.length - 1) - i;
+        const chTitle = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
+        const noteStr = String(ch.note || '').trim().slice(0, 1200);
+        const bodyStr = String(ch.translatedContent || ch.content || '').trim();
+
+        let block = '';
+        if (distFromEnd < 3 && bodyStr) {
+          const perCap = Math.min(5500, Math.floor(remaining * 0.5));
+          const snippet = bodyStr.slice(0, Math.max(800, perCap));
+          block = `[${chTitle}]${noteStr ? `\nสรุปตอน: ${noteStr}` : ''}\nเนื้อหา:\n${snippet}`;
+        } else if (noteStr) {
+          block = `[${chTitle}]\nสรุปตอน: ${noteStr}`;
+        } else if (bodyStr) {
+          block = `[${chTitle}]\nตัวอย่างเนื้อหา: ${bodyStr.slice(0, 260)}`;
+        } else {
+          block = `[${chTitle}] (ยังไม่มีเนื้อหา)`;
+        }
+
+        if (block.length + 20 > remaining) {
+          skippedCount += i + 1;
+          break;
+        }
+        chapterBlocksRev.push(block);
+        remaining -= (block.length + 2);
+      }
+
+      const chapterBlocks = chapterBlocksRev.reverse();
+      if (skippedCount > 0) {
+        chapterBlocks.unshift(`(...มีตอนก่อนหน้าอีก ${skippedCount} ตอนที่ย่อข้ามเพื่อจำกัดความยาวบริบท...)`);
+      }
+
+      return `${headerText}\n\n=== เนื้อหาและเรื่องย่อตามลำดับตอน ===\n${chapterBlocks.join('\n\n')}`;
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 1: 1-CLICK AI CHAPTER SUMMARY (SINGLE & BATCH UP TO 5)
+    // ---------------------------------------------------------------------
+    async function generateChapterSummaryText(novel, ch) {
+      const { text } = getBestChapterText(ch, 18000);
+      if (!text) throw new Error('ตอนนี้ยังไม่มีเนื้อหาให้สรุป');
+      const glossary = String(novel?.glossary || '').trim();
+      const sysPrompt = [
+        'คุณคือผู้ช่วยสรุปเนื้อหานิยายภาษาไทยอย่างกระชับ ตรงประเด็น และเก็บรายละเอียดสำคัญครบถ้วน',
+        glossary ? `ชื่อตัวละครและศัพท์เฉพาะที่ต้องใช้ให้ตรงกัน:\n${glossary}` : '',
+        'ห้ามแต่งเติมข้อมูลที่ไม่มีในตอนที่ส่งให้'
+      ].filter(Boolean).join('\n\n');
+      const prompt = `ช่วยสรุปเหตุการณ์สำคัญของ "${novel?.translatedTitle || novel?.title || 'นิยาย'}" ตอนที่ ${Number(ch.order)}: ${ch.translatedTitle || ch.title}\n\nขอเป็นภาษาไทยอ่านง่าย (ความยาวประมาณ 4-8 บรรทัด) แบ่งประเด็นสั้นๆ ดังนี้:\n• เหตุการณ์หลัก\n• ความเคลื่อนไหวตัวละครสำคัญ\n• ปมสำคัญ/จุดพลิกผันท้ายตอน (ถ้ามี)\n\nเนื้อหาตอน:\n${text}`;
+      return await callGeminiApi(prompt, sysPrompt);
+    }
+
+    async function aiSummarizeActiveNoteChapter() {
+      if (!requireGeminiKeyOrOpenSettings('สรุปตอนด้วย AI')) return;
+      const novel = getActiveNovel();
+      const ch = state.chapters.find((c) => c.id === state.editingNoteChapterId);
+      if (!novel || !ch) return;
+
+      const { text } = getBestChapterText(ch, 100);
+      if (!text) {
+        showToast('ตอนนี้ยังไม่มีเนื้อหาให้ AI สรุปครับ');
+        return;
+      }
+
+      const btn = $('btnAiSummarizeChapter');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '✨ กำลังสรุป...';
+      try {
+        const summary = await generateChapterSummaryText(novel, ch);
+        const existing = $('inputChapterNote').value.trim();
+        if (existing) {
+          if (confirm('มีข้อความโน้ตเดิมอยู่แล้ว กด OK เพื่อเขียนทับด้วยสรุปจาก AI หรือ Cancel เพื่อต่อท้ายโน้ตเดิม')) {
+            $('inputChapterNote').value = summary;
+          } else {
+            $('inputChapterNote').value = `${existing}\n\n--- ✨ สรุปโดย AI ---\n${summary}`;
+          }
+        } else {
+          $('inputChapterNote').value = summary;
+        }
+        showToast('สรุปตอนนี้ด้วย AI แล้ว (กด "บันทึก" เพื่อเก็บลงตอน)');
+      } catch (err) {
+        console.error('aiSummarizeActiveNoteChapter failed:', err);
+        showToast('สรุปตอนไม่สำเร็จ: ' + (err?.message || 'เกิดข้อผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    async function aiSummarizeMissingNotes() {
+      if (!requireGeminiKeyOrOpenSettings('สรุปหลายตอนด้วย AI')) return;
+      const novel = getActiveNovel();
+      if (!state.user || !novel) return;
+
+      const targets = getSortedChaptersAsc()
+        .filter((c) => !(c.note && String(c.note).trim()) && Boolean(getBestChapterText(c, 50).text))
+        .slice(0, 5);
+
+      if (targets.length === 0) {
+        showToast('ทุกตอนที่มีเนื้อหามีโน้ต/เรื่องย่อครบหมดแล้วครับ');
+        return;
+      }
+
+      const btn = $('btnAiSummarizeMissingNotes');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      let done = 0;
+
+      try {
+        for (let i = 0; i < targets.length; i++) {
+          const ch = targets[i];
+          btn.textContent = `✨ กำลังสรุปตอนที่ ${i + 1}/${targets.length}...`;
+          const summary = (await generateChapterSummaryText(novel, ch)).slice(0, 20000);
+          const now = Date.now();
+          await updateDoc(
+            doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
+            { note: summary, updatedAt: now }
+          );
+          ch.note = summary;
+          ch.updatedAt = now;
+          done++;
+          renderAllSummariesModal();
+          renderChaptersList();
+          if (state.activeChapterId === ch.id) updateReaderNoteIndicator(ch);
+        }
+        showToast(`✨ AI สรุปและบันทึกโน้ตเพิ่มสำเร็จ ${done} ตอน`);
+      } catch (err) {
+        console.error('aiSummarizeMissingNotes failed:', err);
+        showToast(`สรุปได้ ${done}/${targets.length} ตอน (${err?.message || 'ขัดข้อง'})`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 2: AI STORY RECAP (ANTI-SPOILER)
+    // ---------------------------------------------------------------------
+    function openStoryRecapModal(preferredMaxOrder = null) {
+      const novel = getActiveNovel();
+      if (!novel) return;
+      const sorted = getSortedChaptersAsc();
+      if (sorted.length === 0) {
+        showToast('ยังไม่มีตอนในเรื่องนี้สำหรับสรุปทบทวนครับ');
+        return;
+      }
+
+      const sel = $('selectRecapUpToOrder');
+      sel.innerHTML = sorted
+        .map((c) => `<option value="${Number(c.order)}">ถึงตอนที่ #${Number(c.order)} — ${escapeHtml(c.translatedTitle || c.title)}</option>`)
+        .join('');
+
+      const targetOrder = preferredMaxOrder != null
+        ? Number(preferredMaxOrder)
+        : getDefaultSpoilerCutoffOrder(false);
+      const validMatch = sorted.find((c) => Number(c.order) === targetOrder) || sorted[sorted.length - 1];
+      sel.value = String(Number(validMatch.order));
+
+      $('recapModalSubtitle').textContent = `${novel.translatedTitle || novel.title}`;
+      $('inputStoryRecap').value = novel.storyRecap || '';
+      $('recapModalBackdrop').classList.remove('hidden');
+    }
+
+    async function generateStoryRecap() {
+      if (!requireGeminiKeyOrOpenSettings('ทบทวนเนื้อเรื่อง')) return;
+      const novel = getActiveNovel();
+      if (!novel) return;
+
+      const maxOrder = Number($('selectRecapUpToOrder').value);
+      const btn = $('btnGenerateRecap');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '✨ กำลังสรุปทบทวน...';
+
+      try {
+        const ctx = buildNovelContextUpTo(novel, maxOrder, 34000, false);
+        const sysPrompt = [
+          'คุณคือผู้ช่วยทบทวนความจำนิยายภาษาไทยสำหรับผู้อ่านที่พักอ่านไประยะหนึ่ง',
+          `กฎเหล็กรักษาความลับ (ANTI-SPOILER): ให้กล่าวถึงเหตุการณ์ ข้อมูล และตัวละครที่ปรากฏจนถึง "ตอนที่ ${maxOrder}" เท่านั้น ห้ามกล่าวถึง หรือใบ้เหตุการณ์ในตอนหลังกว่านี้เด็ดขาด`
+        ].join('\n\n');
+        const prompt = `ช่วยเขียน "บททบทวนความจำก่อนอ่านต่อ" ให้ผู้อ่านจำเรื่องได้ทันทีสำหรับนิยายเรื่องนี้ โดยครอบคลุมตั้งแต่ต้นจนถึงตอนที่ ${maxOrder} เท่านั้น:\n\n1. ภาพรวมเส้นเรื่องหลักที่ผ่านมา\n2. ตัวละครสำคัญและสถานะ/ความสัมพันธ์ปัจจุบัน\n3. ปมปริศนาหรือเหตุการณ์ที่ค้างคา ณ จุดนี้\n\nข้อมูลเรื่อง (คัดกรองถึงตอนที่ ${maxOrder}):\n${ctx}`;
+        const reply = await callGeminiApi(prompt, sysPrompt);
+        $('inputStoryRecap').value = reply.slice(0, 30000);
+        showToast('✨ สร้างสรุปทบทวนเสร็จแล้ว (กดบันทึกเพื่อเก็บไว้)');
+      } catch (err) {
+        console.error('generateStoryRecap failed:', err);
+        showToast('สร้างสรุปทบทวนไม่สำเร็จ: ' + (err?.message || 'เกิดข้อผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    async function saveStoryRecap() {
+      const novel = getActiveNovel();
+      if (!state.user || !novel) return;
+      const storyRecap = $('inputStoryRecap').value.slice(0, 30000);
+      const btn = $('btnSaveStoryRecap');
+      btn.disabled = true;
+      try {
+        await updateDoc(
+          doc(db, 'users', state.user.uid, 'readerNovels', novel.id),
+          { storyRecap, updatedAt: Date.now() }
+        );
+        novel.storyRecap = storyRecap;
+        $('recapModalBackdrop').classList.add('hidden');
+        showToast('💾 บันทึกสรุปทบทวนเรื่องแล้ว');
+      } catch (err) {
+        console.error('saveStoryRecap failed:', err);
+        showToast('บันทึกสรุปไม่สำเร็จ: ' + (err?.code || err?.message));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 3: ASK AI ABOUT THIS NOVEL (ANTI-SPOILER CHAT)
+    // ---------------------------------------------------------------------
+    function openNovelChatModal(preferredMaxOrder = null) {
+      const novel = getActiveNovel();
+      if (!novel) return;
+      const sorted = getSortedChaptersAsc();
+      const sel = $('selectChatMaxOrder');
+      if (sorted.length > 0) {
+        sel.innerHTML = sorted
+          .map((c) => `<option value="${Number(c.order)}">#${Number(c.order)} ${escapeHtml(c.translatedTitle || c.title)}</option>`)
+          .join('');
+        const targetOrder = preferredMaxOrder != null
+          ? Number(preferredMaxOrder)
+          : getDefaultSpoilerCutoffOrder(true);
+        const match = sorted.find((c) => Number(c.order) === targetOrder) || sorted[sorted.length - 1];
+        sel.value = String(Number(match.order));
+      } else {
+        sel.innerHTML = '<option value="0">(ยังไม่มีตอน)</option>';
+      }
+      sel.disabled = !$('chkChatNoSpoiler').checked || sorted.length === 0;
+      $('novelChatSubtitle').textContent = novel.translatedTitle || novel.title;
+      renderNovelChatMessages();
+      $('novelChatModalBackdrop').classList.remove('hidden');
+      setTimeout(() => $('inputNovelChatPrompt').focus(), 60);
+    }
+
+    function renderNovelChatMessages() {
+      const box = $('novelChatMessages');
+      if (!box) return;
+      if (!Array.isArray(state.novelChatHistory) || state.novelChatHistory.length === 0) {
+        box.innerHTML = `
+          <div class="p-4 rounded-2xl bg-app-subtle border border-app text-center space-y-1.5">
+            <div class="font-bold text-app-main">💬 ถามอะไรก็ได้เกี่ยวกับนิยายเรื่องนี้</div>
+            <p class="text-xs text-app-sub leading-relaxed">
+              เมื่อเปิด <b>🛡️ โหมดกันสปอยล์</b> AI จะตอบเฉพาะข้อมูลที่มีถึงตอนที่คุณเลือกเท่านั้น ไม่สปอยล์ตอนข้างหน้าแน่นอนครับ
+            </p>
+          </div>
+        `;
+        return;
+      }
+      box.innerHTML = '';
+      state.novelChatHistory.forEach((msg) => {
+        const isUser = msg.role === 'user';
+        const row = document.createElement('div');
+        row.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+        const bubble = document.createElement('div');
+        bubble.className = isUser
+          ? 'max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-sm bg-app-accent text-white whitespace-pre-wrap leading-relaxed shadow-sm'
+          : 'max-w-[90%] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-app-subtle border border-app text-app-main whitespace-pre-wrap leading-relaxed';
+        bubble.textContent = msg.text;
+        row.appendChild(bubble);
+        box.appendChild(row);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendNovelChatMessage(customQuestion = null) {
+      if (!requireGeminiKeyOrOpenSettings('ถาม AI เกี่ยวกับเรื่องนี้')) return;
+      const novel = getActiveNovel();
+      if (!novel) return;
+
+      const inputEl = $('inputNovelChatPrompt');
+      const question = String(customQuestion != null ? customQuestion : inputEl.value).trim();
+      if (!question) return;
+      if (customQuestion == null) inputEl.value = '';
+
+      state.novelChatHistory.push({ role: 'user', text: question });
+      renderNovelChatMessages();
+
+      const btn = $('btnSendNovelChat');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'กำลังตอบ...';
+
+      try {
+        const noSpoiler = $('chkChatNoSpoiler').checked;
+        const maxOrder = noSpoiler && state.chapters.length > 0 ? Number($('selectChatMaxOrder').value) : null;
+        const ctx = buildNovelContextUpTo(novel, maxOrder, 30000, !noSpoiler);
+        const recentTurns = state.novelChatHistory
+          .slice(-7, -1)
+          .map((m) => `${m.role === 'user' ? 'ผู้อ่าน' : 'ผู้ช่วย AI'}: ${m.text}`)
+          .join('\n\n');
+
+        const sysPrompt = [
+          'คุณคือเพื่อนคู่คิดและผู้เชี่ยวชาญประจำนิยายเรื่องนี้ที่คอยตอบคำถามเป็นภาษาไทยอย่างชัดเจนและเป็นกันเอง',
+          noSpoiler && maxOrder != null
+            ? `กฎสำคัญ ANTI-SPOILER: ผู้อ่านเพิ่งอ่านถึงตอนที่ ${maxOrder} เท่านั้น ห้ามกล่าวถึง ห้ามใบ้ และห้ามตอบอ้างอิงเหตุการณ์ที่เกิดขึ้นหลังตอนที่ ${maxOrder} เด็ดขาด หากคำถามเกี่ยวกับสิ่งที่จะเกิดในอนาคตหลังตอนที่ ${maxOrder} ให้บอกว่า "ยังไม่เฉลยจนถึงตอนที่ ${maxOrder} (กันสปอยล์)"`
+            : '',
+          'ตอบอ้างอิงจากบริบทนิยายที่ให้มาเท่านั้น หากไม่มีข้อมูลในบริบทให้บอกตามตรงอย่างสุภาพ'
+        ].filter(Boolean).join('\n\n');
+
+        const prompt = [
+          `บริบทของนิยาย:\n${ctx}`,
+          recentTurns ? `ประวัติการถาม-ตอบก่อนหน้า:\n${recentTurns}` : '',
+          `คำถามล่าสุดจากผู้อ่าน:\n${question}`
+        ].filter(Boolean).join('\n\n---\n\n');
+
+        const reply = await callGeminiApi(prompt, sysPrompt);
+        state.novelChatHistory.push({ role: 'model', text: reply });
+        renderNovelChatMessages();
+      } catch (err) {
+        console.error('sendNovelChatMessage failed:', err);
+        state.novelChatHistory.push({
+          role: 'model',
+          text: `❌ เกิดข้อผิดพลาดในการถาม AI: ${err?.message || 'ไม่สามารถเชื่อมต่อได้'}`
+        });
+        renderNovelChatMessages();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 4: HIGHLIGHT TEXT AI POLISH / EXPLAIN IDIOMS / ADD GLOSSARY
+    // ---------------------------------------------------------------------
+    let highlightToolbarAnchorScrollY = 0;
+    let selectionDebounceTimer = null;
+
+    function hideHighlightAiToolbar() {
+      const tb = $('highlightAiToolbar');
+      if (tb) tb.classList.add('hidden');
+    }
+
+    function updatePolishToneChipUI() {
+      document.querySelectorAll('[data-polish-tone]').forEach((btn) => {
+        const active = btn.getAttribute('data-polish-tone') === state.highlightTone;
+        btn.className = active
+          ? 'px-2.5 py-1 rounded-full bg-indigo-600 text-white border border-indigo-600 text-[11px] font-semibold shadow-sm transition'
+          : 'px-2.5 py-1 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-main hover:border-indigo-400 transition';
+      });
+    }
+
+    function handleReaderSelectionChange() {
+      if ($('viewReader').classList.contains('hidden')) {
+        hideHighlightAiToolbar();
+        return;
+      }
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        hideHighlightAiToolbar();
+        return;
+      }
+      const contentEl = $('readerContent');
+      if (!contentEl || !contentEl.contains(sel.anchorNode) || !contentEl.contains(sel.focusNode)) {
+        hideHighlightAiToolbar();
+        return;
+      }
+      const selected = sel.toString().trim();
+      if (selected.length < 2 || selected.length > 600) {
+        hideHighlightAiToolbar();
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        hideHighlightAiToolbar();
+        return;
+      }
+
+      state.highlightSelectionText = selected;
+      const tb = $('highlightAiToolbar');
+      tb.classList.remove('hidden');
+      const tbW = tb.offsetWidth || 320;
+      const tbH = tb.offsetHeight || 42;
+      const left = Math.max(8, Math.min(window.innerWidth - tbW - 8, rect.left + (rect.width / 2) - (tbW / 2)));
+      let top = rect.top - tbH - 10;
+      if (top < 64) {
+        top = Math.min(window.innerHeight - tbH - 12, rect.bottom + 10);
+      }
+      tb.style.left = `${Math.round(left)}px`;
+      tb.style.top = `${Math.round(top)}px`;
+      highlightToolbarAnchorScrollY = window.scrollY;
+    }
+
+    function scheduleSelectionCheck() {
+      clearTimeout(selectionDebounceTimer);
+      selectionDebounceTimer = setTimeout(handleReaderSelectionChange, 140);
+    }
+
+    function getHighlightSurroundingContext(ch, selected) {
+      const th = String(ch?.translatedContent || '');
+      const orig = String(ch?.content || '');
+      for (const source of [th, orig]) {
+        if (!source) continue;
+        const pos = source.indexOf(selected);
+        if (pos !== -1) {
+          const start = Math.max(0, pos - 600);
+          const end = Math.min(source.length, pos + selected.length + 600);
+          return source.slice(start, end);
+        }
+      }
+      return (th || orig).slice(0, 1500);
+    }
+
+    function replaceHighlightedExcerpt(sourceText, selectedText, replacementText) {
+      const src = String(sourceText || '');
+      const sel = String(selectedText || '').trim();
+      if (!src || !sel) return null;
+      if (src.includes(sel)) {
+        return src.replace(sel, replacementText);
+      }
+      const escapeReg = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const parts = sel.split(/\r?\n+/).map((p) => p.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        const re = new RegExp(parts.map(escapeReg).join('\\s*\\n+\\s*'));
+        if (re.test(src)) {
+          return src.replace(re, replacementText);
+        }
+      }
+      return null;
+    }
+
+    function openHighlightAiModal(mode) {
+      const label = mode === 'explain' ? 'อธิบายสำนวนและบริบท' : 'เกลาสำนวนประโยค';
+      if (!requireGeminiKeyOrOpenSettings(label)) return;
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      if (!ch || !state.highlightSelectionText) return;
+
+      state.highlightMode = mode;
+      $('highlightSelectedText').textContent = state.highlightSelectionText;
+      $('inputHighlightAiResult').value = '';
+      $('highlightAiModalTitle').textContent = mode === 'explain'
+        ? '💡 อธิบายคำศัพท์ / สำนวน / บริบทฉาก'
+        : '✨ AI เกลาสำนวน / ปรับคำแปลใหม่';
+      $('highlightPolishToneWrap').classList.toggle('hidden', mode !== 'polish');
+      $('btnApplyHighlightReplace').classList.toggle('hidden', mode !== 'polish');
+      updatePolishToneChipUI();
+
+      $('highlightAiModalBackdrop').classList.remove('hidden');
+      runHighlightAiModal();
+    }
+
+    async function runHighlightAiModal() {
+      if (!requireGeminiKeyOrOpenSettings('ประมวลผลข้อความที่เลือก')) return;
+      const novel = getActiveNovel();
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      const selected = state.highlightSelectionText;
+      if (!novel || !ch || !selected) return;
+
+      const btn = $('btnRunHighlightPolish');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'กำลังคิด...';
+      $('inputHighlightAiResult').value = '✨ กำลังให้ AI ช่วยวิเคราะห์และเรียบเรียง กรุณารอสักครู่...';
+
+      try {
+        const surrounding = getHighlightSurroundingContext(ch, selected);
+        const glossary = String(novel.glossary || '').trim();
+        if (state.highlightMode === 'explain') {
+          const sysPrompt = [
+            'คุณคือผู้เชี่ยวชาญด้านภาษาและวรรณกรรมแปลนิยายภาษาไทย-จีน-อังกฤษ',
+            glossary ? `สมุดคำศัพท์เฉพาะของเรื่อง:\n${glossary}` : ''
+          ].filter(Boolean).join('\n\n');
+          const prompt = `ช่วยอธิบายข้อความที่ผู้อ่านลากคลุมไว้ด้านล่างให้เข้าใจกระจ่างที่สุด เป็นภาษาไทยอ่านง่าย:\n- ความหมายตรงตัว และความหมายแฝงในบริบทฉากนี้\n- หากเป็นสำนวนจีน/คำเฉพาะ/มุกตลก/คำเปรียบเปรย ช่วยอธิบายที่มาสั้นๆ ด้วย\n\nข้อความที่เลือก:\n"""${selected}"""\n\nบริบทรอบข้างในตอน:\n"""${surrounding}"""`;
+          $('inputHighlightAiResult').value = await callGeminiApi(prompt, sysPrompt);
+        } else {
+          const sysPrompt = [
+            'คุณคือนักเขียนและบรรณาธิการเกลาสำนวนนิยายภาษาไทยมืออาชีพ',
+            glossary ? `ต้องคงชื่อตัวละครและคำศัพท์เฉพาะตามสมุดคำศัพท์นี้:\n${glossary}` : '',
+            'กฎสำคัญ: ตอบกลับมาเฉพาะข้อความภาษาไทยที่เกลาใหม่สำหรับท่อนที่เลือกเท่านั้น ห้ามเกริ่นนำ ห้ามใส่เครื่องหมายคำพูดครอบ และห้ามอธิบายเพิ่มเติม'
+          ].filter(Boolean).join('\n\n');
+          const prompt = `ช่วยแปล/เกลาสำนวนเฉพาะข้อความท่อนนี้ใหม่ให้เป็นภาษาไทยตามแนวทาง: "${state.highlightTone}"\nรักษาความหมายและลำดับย่อหน้าให้ตรงกับท่อนที่เลือกมากที่สุด\n\nข้อความที่ต้องการเกลาใหม่:\n"""${selected}"""\n\nบริบทรอบข้างในตอน (ใช้อ้างอิงอารมณ์และสรรพนามเท่านั้น ห้ามแปลรวมเข้ามา):\n"""${surrounding}"""`;
+          $('inputHighlightAiResult').value = await callGeminiApi(prompt, sysPrompt);
+        }
+      } catch (err) {
+        console.error('runHighlightAiModal failed:', err);
+        $('inputHighlightAiResult').value = '';
+        showToast('ประมวลผลไม่สำเร็จ: ' + (err?.message || 'เกิดข้อผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    async function applyHighlightReplace() {
+      const novel = getActiveNovel();
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      const selected = state.highlightSelectionText;
+      const replacement = $('inputHighlightAiResult').value.trim();
+      if (!state.user || !novel || !ch || !selected || !replacement) {
+        showToast('ยังไม่มีข้อความผลลัพธ์สำหรับนำไปแทนที่ครับ');
+        return;
+      }
+
+      if (!ch.translatedContent || !String(ch.translatedContent).trim()) {
+        showToast('ตอนนี้ยังไม่มีคำแปลไทยให้แทนที่ครับ (คัดลอกข้อความไปวางเองได้)');
+        return;
+      }
+
+      const updated = replaceHighlightedExcerpt(ch.translatedContent, selected, replacement);
+      if (updated == null) {
+        showToast('ไม่พบข้อความท่อนนี้ในคำแปลไทย (อาจคลุมจากฝั่งต้นฉบับ) กดคัดลอกแล้ววางแก้ไขใน ✏️ ได้ครับ');
+        return;
+      }
+
+      const btn = $('btnApplyHighlightReplace');
+      btn.disabled = true;
+      try {
+        const now = Date.now();
+        await updateDoc(
+          doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
+          { translatedContent: updated, updatedAt: now }
+        );
+        ch.translatedContent = updated;
+        ch.updatedAt = now;
+        renderReaderChapterContent(ch);
+        $('highlightAiModalBackdrop').classList.add('hidden');
+        showToast('✅ นำสำนวนใหม่ไปแทนที่ในคำแปลตอนนี้แล้ว');
+      } catch (err) {
+        console.error('applyHighlightReplace failed:', err);
+        showToast('บันทึกการแทนที่ไม่สำเร็จ: ' + (err?.code || err?.message));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleHighlightAddGlossary() {
+      const term = String(state.highlightSelectionText || '').replace(/\r?\n+/g, ' ').trim().slice(0, 120);
+      hideHighlightAiToolbar();
+      window.getSelection()?.removeAllRanges();
+      if (!term) return;
+
+      openGlossaryModal();
+      const textarea = $('inputNovelGlossary');
+      const existingRaw = textarea.value.trim();
+      const existingSrc = new Set(parseGlossaryEntries(existingRaw).map((e) => e.src));
+      if (existingSrc.has(term)) {
+        textarea.focus();
+        showToast(`"${term}" มีอยู่ในสมุดคำศัพท์แล้วครับ`);
+        return;
+      }
+
+      let suggested = '';
+      if (String(state.translator.geminiApiKey || '').trim()) {
+        try {
+          showToast('✨ กำลังให้ AI ช่วยเสนอคำทับศัพท์/คำแปล...');
+          const reply = await callGeminiApi(
+            `เสนอคำทับศัพท์หรือคำแปลภาษาไทยที่สั้นกระชับและเหมาะสมสำหรับคำ/ชื่อ "${term}" เพียง 1 คำตอบเท่านั้น (ไม่ต้องใส่คำอธิบายหรือเครื่องหมายอื่น)`,
+            'คุณคือผู้เชี่ยวชาญการตั้งคำศัพท์และทับศัพท์ชื่อตัวละครนิยายภาษาไทย'
+          );
+          suggested = reply.split('\n')[0].trim().replace(/^["'`]|["'`]$/g, '');
+        } catch (err) {
+          console.warn('AI glossary suggest fallback:', err);
+        }
+      } else {
+        try {
+          suggested = (await googleTranslateChunk(term, detectSourceLangCode(term), 'th')).trim();
+        } catch (err) {
+          suggested = '';
+        }
+      }
+
+      const newLine = `${term} = ${suggested || ''}`;
+      textarea.value = existingRaw ? `${existingRaw}\n${newLine}` : newLine;
+      textarea.scrollTop = textarea.scrollHeight;
+      textarea.focus();
+      showToast('📖 เพิ่มลงรายการคำศัพท์แล้ว (ตรวจสอบแล้วกดบันทึกคำศัพท์ได้เลย)');
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 5: AI CHARACTER WIKI & WORLD LORE
+    // ---------------------------------------------------------------------
+    function openCharacterWikiModal() {
+      const novel = getActiveNovel();
+      if (!novel) return;
+      $('characterWikiSubtitle').textContent = novel.translatedTitle || novel.title;
+      $('inputCharacterWiki').value = novel.characterWiki || '';
+      $('characterWikiModalBackdrop').classList.remove('hidden');
+    }
+
+    async function aiGenerateCharacterWiki() {
+      if (!requireGeminiKeyOrOpenSettings('สร้างสารานุกรมตัวละคร')) return;
+      const novel = getActiveNovel();
+      if (!novel) return;
+
+      const btn = $('btnAiGenerateWiki');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '✨ กำลังรวบรวม...';
+
+      try {
+        const noSpoiler = $('chkWikiNoSpoiler').checked;
+        const maxOrder = noSpoiler && state.chapters.length > 0 ? getDefaultSpoilerCutoffOrder(true) : null;
+        const ctx = buildNovelContextUpTo(novel, maxOrder, 36000, false);
+        const existingWiki = $('inputCharacterWiki').value.trim().slice(0, 6000);
+
+        const sysPrompt = [
+          'คุณคือผู้จัดทำสารานุกรมตัวละครและข้อมูลโลกของนิยาย (Character & World Wiki) ภาษาไทย',
+          noSpoiler && maxOrder != null
+            ? `กฎป้องกันสปอยล์: ใช้ข้อมูลเฉพาะที่มีถึงตอนที่ ${maxOrder} เท่านั้น ห้ามใส่เหตุการณ์หรือความลับในอนาคตที่ยังไม่เกิด`
+            : '',
+          'จัดรูปแบบให้อ่านง่าย เป็นหมวดหมู่ชัดเจน สบายตา'
+        ].filter(Boolean).join('\n\n');
+
+        const prompt = [
+          'ช่วยวิเคราะห์และเรียบเรียง "สารานุกรมตัวละคร & ข้อมูลสำคัญของเรื่อง" เป็นภาษาไทยให้ครบถ้วนโดยแบ่งหัวข้อ:',
+          '1. ตัวละครหลัก (ชื่อ, ฉายา/ชื่อรอง, บุคลิก, บทบาท)',
+          '2. ตัวละครสมทบ & ฝ่าย/สังกัดสำคัญ',
+          '3. สรุปความสัมพันธ์ระหว่างตัวละคร',
+          '4. สถานที่ / ระบบพลัง / ข้อมูลเฉพาะของโลกในเรื่อง',
+          existingWiki ? `\nข้อมูลสารานุกรมเดิมที่มีอยู่แล้ว (ช่วยผสานและอัปเดตให้สมบูรณ์ขึ้นโดยไม่ทำข้อมูลเดิมที่ดีอยู่แล้วหาย):\n${existingWiki}` : '',
+          `\nข้อมูลนิยายสำหรับสกัด:\n${ctx}`
+        ].filter(Boolean).join('\n\n');
+
+        const reply = await callGeminiApi(prompt, sysPrompt);
+        $('inputCharacterWiki').value = reply.slice(0, 50000);
+        showToast('✨ สร้าง/อัปเดตสารานุกรมตัวละครแล้ว (อย่าลืมกดบันทึกนะครับ)');
+      } catch (err) {
+        console.error('aiGenerateCharacterWiki failed:', err);
+        showToast('สร้างสารานุกรมไม่สำเร็จ: ' + (err?.message || 'เกิดข้อผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    async function saveCharacterWiki() {
+      const novel = getActiveNovel();
+      if (!state.user || !novel) return;
+      const characterWiki = $('inputCharacterWiki').value.slice(0, 50000);
+      const btn = $('btnSaveCharacterWiki');
+      btn.disabled = true;
+      try {
+        await updateDoc(
+          doc(db, 'users', state.user.uid, 'readerNovels', novel.id),
+          { characterWiki, updatedAt: Date.now() }
+        );
+        novel.characterWiki = characterWiki;
+        $('characterWikiModalBackdrop').classList.add('hidden');
+        showToast('💾 บันทึกสารานุกรมตัวละครแล้ว');
+      } catch (err) {
+        console.error('saveCharacterWiki failed:', err);
+        showToast('บันทึกไม่สำเร็จ: ' + (err?.code || err?.message));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // FEATURE 6: THAI AUDIO READER / TEXT-TO-SPEECH (TTS)
+    // ---------------------------------------------------------------------
+    function getTtsParagraphs() {
+      if (state.prefs.readLangMode === 'dual') {
+        const dualTh = Array.from(document.querySelectorAll('#readerContent p.dual-th'));
+        if (dualTh.length > 0) return dualTh;
+      }
+      return Array.from(document.querySelectorAll('#readerContent > p:not(.scene-break)'));
+    }
+
+    function clearTtsHighlight() {
+      document.querySelectorAll('#readerContent .tts-active-para').forEach((el) => {
+        el.classList.remove('tts-active-para');
+      });
+    }
+
+    function setTtsStatusText() {
+      const paras = getTtsParagraphs();
+      const total = paras.length;
+      const playBtn = $('btnTtsPlayPause');
+      const statusEl = $('ttsStatusLabel');
+      const toggleBtn = $('btnReaderToggleTts');
+
+      if (playBtn) {
+        playBtn.textContent = state.ttsPlaying
+          ? '⏸ หยุดชั่วคราว'
+          : (state.ttsPaused ? '▶️ อ่านต่อ' : '▶️ อ่านเสียง');
+      }
+      if (statusEl) {
+        if (total === 0) {
+          statusEl.textContent = 'ไม่มีข้อความให้อ่าน';
+        } else if (state.ttsPlaying) {
+          statusEl.textContent = `กำลังอ่านย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
+        } else if (state.ttsPaused) {
+          statusEl.textContent = `พักอยู่ที่ย่อหน้า ${Math.min(state.ttsParaIndex + 1, total)} / ${total}`;
+        } else {
+          statusEl.textContent = `พร้อมอ่าน (${total} ย่อหน้า)`;
+        }
+      }
+      if (toggleBtn) {
+        toggleBtn.className = state.ttsOpen
+          ? 'px-2.5 py-1.5 rounded-xl bg-app-accent text-white text-[11px] sm:text-xs font-semibold shadow-sm transition'
+          : 'px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-[11px] sm:text-xs font-semibold text-app-main hover:opacity-85 transition';
+      }
+    }
+
+    function openTtsBarStatePreserve() {
+      state.ttsOpen = true;
+      $('ttsPlayerBar').classList.remove('hidden');
+      setTtsStatusText();
+    }
+
+    function pickBestTtsVoice(text) {
+      if (!('speechSynthesis' in window)) return { voice: null, lang: 'th-TH' };
+      const voices = window.speechSynthesis.getVoices() || [];
+      let targetLang = 'th';
+      if (/[\u0e00-\u0e7f]/.test(text)) {
+        targetLang = 'th';
+      } else if (/[\u4e00-\u9fff]/.test(text)) {
+        targetLang = 'zh';
+      } else if (/[a-zA-Z]{4,}/.test(text)) {
+        targetLang = 'en';
+      }
+      const matches = voices.filter((v) => String(v.lang || '').toLowerCase().startsWith(targetLang));
+      const preferred = matches.find((v) => /google|microsoft|premwadee|niwat|natural/i.test(v.name)) || matches[0] || null;
+      const fallbackLang = targetLang === 'th' ? 'th-TH' : (targetLang === 'zh' ? 'zh-CN' : 'en-US');
+      return { voice: preferred, lang: preferred?.lang || fallbackLang };
+    }
+
+    function ttsSpeakIndex(idx) {
+      if (!('speechSynthesis' in window)) {
+        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียงครับ');
+        return;
+      }
+      const paras = getTtsParagraphs();
+      if (paras.length === 0) {
+        showToast('ไม่พบย่อหน้าสำหรับอ่านออกเสียงครับ');
+        stopTts(false);
+        return;
+      }
+
+      if (idx >= paras.length) {
+        clearTtsHighlight();
+        if ($('chkTtsAutoNext').checked) {
+          const chIdx = state.chapters.findIndex((c) => c.id === state.activeChapterId);
+          if (chIdx !== -1 && chIdx + 1 < state.chapters.length) {
+            state.ttsSessionId += 1;
+            window.speechSynthesis.cancel();
+            openReaderChapter(state.chapters[chIdx + 1].id, false, true);
+            return;
+          }
+        }
+        stopTts(false);
+        showToast('🔊 อ่านจบตอนแล้วครับ');
+        return;
+      }
+
+      const safeIdx = Math.max(0, Math.min(paras.length - 1, idx));
+      const pEl = paras[safeIdx];
+      const text = String(pEl.textContent || '').trim();
+      if (!text) {
+        ttsSpeakIndex(safeIdx + 1);
+        return;
+      }
+
+      state.ttsOpen = true;
+      $('ttsPlayerBar').classList.remove('hidden');
+      state.ttsParaIndex = safeIdx;
+      state.ttsPlaying = true;
+      state.ttsPaused = false;
+      state.ttsSessionId += 1;
+      const sid = state.ttsSessionId;
+
+      clearTtsHighlight();
+      pEl.classList.add('tts-active-para');
+      pEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      const { voice, lang } = pickBestTtsVoice(text);
+      if (voice) utter.voice = voice;
+      utter.lang = lang;
+      utter.rate = Number(state.ttsRate) || 1;
+
+      utter.onend = () => {
+        if (sid !== state.ttsSessionId || !state.ttsPlaying) return;
+        ttsSpeakIndex(safeIdx + 1);
+      };
+      utter.onerror = (ev) => {
+        if (sid !== state.ttsSessionId) return;
+        if (ev?.error === 'interrupted' || ev?.error === 'canceled') return;
+        console.warn('TTS utterance error:', ev);
+        state.ttsPlaying = false;
+        setTtsStatusText();
+      };
+
+      setTtsStatusText();
+      window.speechSynthesis.speak(utter);
+    }
+
+    function toggleTtsPlayPause() {
+      if (!('speechSynthesis' in window)) {
+        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Web Speech API)');
+        return;
+      }
+      if (state.ttsPlaying) {
+        state.ttsSessionId += 1;
+        window.speechSynthesis.cancel();
+        state.ttsPlaying = false;
+        state.ttsPaused = true;
+        setTtsStatusText();
+      } else {
+        ttsSpeakIndex(state.ttsParaIndex || 0);
+      }
+    }
+
+    function stopTts(hideBar = true) {
+      state.ttsSessionId += 1;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      state.ttsPlaying = false;
+      state.ttsPaused = false;
+      state.ttsParaIndex = 0;
+      clearTtsHighlight();
+      if (hideBar) {
+        state.ttsOpen = false;
+        const bar = $('ttsPlayerBar');
+        if (bar) bar.classList.add('hidden');
+      }
+      setTtsStatusText();
+    }
+
+    function toggleTtsBar() {
+      if (!('speechSynthesis' in window)) {
+        showToast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง (Web Speech API)');
+        return;
+      }
+      if (state.ttsOpen) {
+        stopTts(true);
+      } else {
+        state.ttsOpen = true;
+        $('ttsPlayerBar').classList.remove('hidden');
+        ttsSpeakIndex(0);
+      }
+    }
+
+    // Wire Feature 1 Listeners
+    $('btnAiSummarizeChapter').addEventListener('click', aiSummarizeActiveNoteChapter);
+    $('btnAiSummarizeMissingNotes').addEventListener('click', aiSummarizeMissingNotes);
+
+    // Wire Feature 2 Listeners
+    $('btnOpenStoryRecap').addEventListener('click', () => openStoryRecapModal());
+    $('btnReaderStoryRecap').addEventListener('click', () => openStoryRecapModal());
+    $('btnCloseRecapModal').addEventListener('click', () => $('recapModalBackdrop').classList.add('hidden'));
+    $('btnCancelRecapModal').addEventListener('click', () => $('recapModalBackdrop').classList.add('hidden'));
+    $('recapModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('recapModalBackdrop')) $('recapModalBackdrop').classList.add('hidden');
+    });
+    $('btnGenerateRecap').addEventListener('click', generateStoryRecap);
+    $('btnSaveStoryRecap').addEventListener('click', saveStoryRecap);
+
+    // Wire Feature 3 Listeners
+    $('btnOpenNovelChat').addEventListener('click', () => openNovelChatModal());
+    $('btnReaderNovelChat').addEventListener('click', () => openNovelChatModal());
+    $('btnCloseNovelChatModal').addEventListener('click', () => $('novelChatModalBackdrop').classList.add('hidden'));
+    $('novelChatModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('novelChatModalBackdrop')) $('novelChatModalBackdrop').classList.add('hidden');
+    });
+    $('chkChatNoSpoiler').addEventListener('change', (e) => {
+      $('selectChatMaxOrder').disabled = !e.target.checked || state.chapters.length === 0;
+    });
+    $('btnClearNovelChat').addEventListener('click', () => {
+      state.novelChatHistory = [];
+      renderNovelChatMessages();
+    });
+    $('btnSendNovelChat').addEventListener('click', () => sendNovelChatMessage());
+    $('inputNovelChatPrompt').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendNovelChatMessage();
+      }
+    });
+    document.querySelectorAll('[data-chat-quick]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sendNovelChatMessage(btn.getAttribute('data-chat-quick'));
+      });
+    });
+
+    // Wire Feature 4 Listeners
+    document.addEventListener('selectionchange', scheduleSelectionCheck);
+    $('readerContent').addEventListener('mouseup', scheduleSelectionCheck);
+    $('readerContent').addEventListener('touchend', scheduleSelectionCheck);
+    window.addEventListener('scroll', () => {
+      const tb = $('highlightAiToolbar');
+      if (tb && !tb.classList.contains('hidden') && Math.abs(window.scrollY - highlightToolbarAnchorScrollY) > 70) {
+        hideHighlightAiToolbar();
+      }
+    }, { passive: true });
+    $('btnHighlightClose').addEventListener('click', () => {
+      hideHighlightAiToolbar();
+      window.getSelection()?.removeAllRanges();
+    });
+    $('btnHighlightPolish').addEventListener('click', () => openHighlightAiModal('polish'));
+    $('btnHighlightExplain').addEventListener('click', () => openHighlightAiModal('explain'));
+    $('btnHighlightAddGlossary').addEventListener('click', handleHighlightAddGlossary);
+    $('btnCloseHighlightAiModal').addEventListener('click', () => $('highlightAiModalBackdrop').classList.add('hidden'));
+    $('btnCancelHighlightAiModal').addEventListener('click', () => $('highlightAiModalBackdrop').classList.add('hidden'));
+    $('highlightAiModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('highlightAiModalBackdrop')) $('highlightAiModalBackdrop').classList.add('hidden');
+    });
+    document.querySelectorAll('[data-polish-tone]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.highlightTone = btn.getAttribute('data-polish-tone') || '';
+        updatePolishToneChipUI();
+        runHighlightAiModal();
+      });
+    });
+    $('btnRunHighlightPolish').addEventListener('click', runHighlightAiModal);
+    $('btnApplyHighlightReplace').addEventListener('click', applyHighlightReplace);
+    $('btnCopyHighlightAiResult').addEventListener('click', () => {
+      copyTextToClipboard($('inputHighlightAiResult').value, 'คัดลอกผลลัพธ์จาก AI แล้ว');
+    });
+
+    // Wire Feature 5 Listeners
+    $('btnOpenCharacterWiki').addEventListener('click', openCharacterWikiModal);
+    $('btnReaderCharacterWiki').addEventListener('click', openCharacterWikiModal);
+    $('btnCloseCharacterWikiModal').addEventListener('click', () => $('characterWikiModalBackdrop').classList.add('hidden'));
+    $('btnCancelCharacterWikiModal').addEventListener('click', () => $('characterWikiModalBackdrop').classList.add('hidden'));
+    $('characterWikiModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('characterWikiModalBackdrop')) $('characterWikiModalBackdrop').classList.add('hidden');
+    });
+    $('btnAiGenerateWiki').addEventListener('click', aiGenerateCharacterWiki);
+    $('btnSaveCharacterWiki').addEventListener('click', saveCharacterWiki);
+
+    // Wire Feature 6 Listeners
+    $('btnReaderToggleTts').addEventListener('click', toggleTtsBar);
+    $('btnTtsPlayPause').addEventListener('click', toggleTtsPlayPause);
+    $('btnTtsStop').addEventListener('click', () => stopTts(true));
+    $('btnTtsPrevPara').addEventListener('click', () => {
+      ttsSpeakIndex(Math.max(0, (state.ttsParaIndex || 0) - 1));
+    });
+    $('btnTtsNextPara').addEventListener('click', () => {
+      ttsSpeakIndex((state.ttsParaIndex || 0) + 1);
+    });
+    $('selectTtsRate').addEventListener('change', (e) => {
+      state.ttsRate = parseFloat(e.target.value) || 1;
+      if (state.ttsPlaying) {
+        ttsSpeakIndex(state.ttsParaIndex || 0);
+      }
+    });
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
 
     loadLocalPrefs();
   </script>

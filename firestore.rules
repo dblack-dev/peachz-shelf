@@ -36,6 +36,8 @@ rules_version = '2';
 //      - notes: string (optional, <= 25,000 chars)
 //      - glossary: string (optional, <= 50,000 chars)
 //      - transStyle: string (optional, <= 1,000 chars)
+//      - characterWiki: string (optional, <= 50,000 chars)
+//      - storyRecap: string (optional, <= 30,000 chars)
 //      - lastChapterId: string (optional, <= 128 chars)
 //      - lastChapterTitle: string (optional, <= 200 chars)
 //      - lastChapterOrder: number (optional, 0..1,000,000)
@@ -162,9 +164,9 @@ service cloud.firestore {
       return hasOnlyAllowedFields(data, [
                'title', 'translatedTitle', 'author', 'coverUrl', 'synopsis',
                'translatedSynopsis', 'tags', 'status', 'isFavorite', 'notes',
-               'glossary', 'transStyle', 'chapterCount', 'lastChapterId',
-               'lastChapterTitle', 'lastChapterOrder', 'lastScrollRatio',
-               'createdAt', 'updatedAt'
+               'glossary', 'transStyle', 'characterWiki', 'storyRecap',
+               'chapterCount', 'lastChapterId', 'lastChapterTitle',
+               'lastChapterOrder', 'lastScrollRatio', 'createdAt', 'updatedAt'
              ]) &&
              hasRequiredFields(data, [
                'title', 'status', 'isFavorite', 'chapterCount', 'createdAt', 'updatedAt'
@@ -184,6 +186,8 @@ service cloud.firestore {
              isValidOptionalString(data, 'notes', 25000) &&
              isValidOptionalString(data, 'glossary', 50000) &&
              isValidOptionalString(data, 'transStyle', 1000) &&
+             isValidOptionalString(data, 'characterWiki', 50000) &&
+             isValidOptionalString(data, 'storyRecap', 30000) &&
              isValidOptionalString(data, 'lastChapterId', 128) &&
              isValidOptionalString(data, 'lastChapterTitle', 200) &&
              (!('lastChapterOrder' in data) || (data.lastChapterOrder is number && data.lastChapterOrder >= 0 && data.lastChapterOrder <= 1000000)) &&
