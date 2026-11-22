@@ -379,6 +379,10 @@
             class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main">
             📑 ตอน
           </button>
+          <button id="btnReaderChapterNote" type="button" title="เรื่องย่อ / ข้อมูลตอนนี้"
+            class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main">
+            📝
+          </button>
           <button id="btnReaderEditChapter" type="button" title="แก้ไขตอนนี้"
             class="px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main">
             ✏️
@@ -437,8 +441,20 @@
       <!-- Reader Paper Container -->
       <div class="flex-1 reader-paper py-6 sm:py-10 px-4 sm:px-6">
         <article id="readerArticle" class="mx-auto space-y-6" style="max-width: 740px;">
-          <header class="pb-4 border-b border-app space-y-1">
-            <div id="readerBodyOrder" class="text-xs font-semibold text-app-accent"></div>
+          <header class="pb-4 border-b border-app space-y-2">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div id="readerBodyOrder" class="text-xs font-semibold text-app-accent"></div>
+              <div class="flex items-center gap-1.5">
+                <button id="btnReaderCopyContent" type="button" title="คัดลอกเฉพาะเนื้อหานิยายตอนนี้"
+                  class="px-2.5 py-1 rounded-xl bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
+                  📋 คัดลอกเนื้อหา
+                </button>
+                <button id="btnReaderClearContent" type="button" title="ล้างเฉพาะเนื้อหานิยายตอนนี้ (ชื่อตอนและโน้ตยังอยู่)"
+                  class="px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-500 text-[11px] font-semibold hover:bg-rose-500/20 transition">
+                  🧹 ล้างเนื้อหา
+                </button>
+              </div>
+            </div>
             <h1 id="readerBodyTitle" class="text-xl sm:text-2xl font-bold leading-snug"></h1>
           </header>
 
@@ -500,12 +516,22 @@
             </select>
           </div>
         </div>
-        <div class="space-y-1">
-          <label class="font-semibold text-app-main">ลิงก์รูปปก (URL)</label>
+        <div class="space-y-1.5">
+          <label class="font-semibold text-app-main">รูปปกนิยาย (ใส่ลิงก์ URL หรือเลือกรูปจากเครื่อง)</label>
           <div class="flex items-center gap-2.5">
-            <input id="inputNovelCover" type="url" maxlength="1000" placeholder="https://..."
+            <input id="inputNovelCover" type="text" placeholder="https://... หรืออัปโหลดรูปจากเครื่องด้านล่าง"
               class="flex-1 px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400" />
             <img id="coverPreviewImg" src="" alt="" class="hidden w-10 h-14 rounded-lg object-cover border border-app shrink-0" />
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <label class="px-3 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main cursor-pointer hover:opacity-85 transition">
+              📷 เลือกรูปจากเครื่อง
+              <input id="inputNovelCoverFile" type="file" accept="image/*" class="hidden" />
+            </label>
+            <button id="btnClearNovelCover" type="button"
+              class="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-semibold hover:bg-rose-500/20 transition">
+              ลบรูปปก
+            </button>
           </div>
         </div>
         <div class="space-y-1">
@@ -563,7 +589,19 @@
           </div>
         </div>
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">เนื้อหาตอน *</label>
+          <div class="flex items-center justify-between gap-2">
+            <label class="font-semibold text-app-main">เนื้อหาตอน *</label>
+            <div class="flex items-center gap-1.5">
+              <button id="btnModalCopyContent" type="button"
+                class="px-2.5 py-1 rounded-lg bg-app-subtle border border-app text-[11px] font-semibold text-app-main hover:opacity-85 transition">
+                📋 คัดลอก
+              </button>
+              <button id="btnModalClearContent" type="button"
+                class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-[11px] font-semibold hover:bg-rose-500/20 transition">
+                🧹 ล้างเนื้อหา
+              </button>
+            </div>
+          </div>
           <textarea id="inputChapterContent" rows="11" placeholder="วางเนื้อหานิยายที่นี่..."
             class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-app-main leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
         </div>
@@ -590,6 +628,32 @@
       <div class="px-5 py-3.5 border-t border-app flex items-center justify-end gap-2">
         <button id="btnCancelChapterModal" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ยกเลิก</button>
         <button id="btnSaveChapterModal" type="button" class="px-5 py-2 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: PER-CHAPTER SUMMARY / CUSTOM NOTE POPUP
+       ===================================================================== -->
+  <div id="chapterNoteModalBackdrop" class="hidden fixed inset-0 z-50 bg-black/55 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-lg bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+      <div class="px-5 py-4 border-b border-app flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[11px] font-semibold text-app-accent">📝 เรื่องย่อ / ข้อมูลประจำตอน</div>
+          <h3 id="chapterNoteModalTitle" class="font-bold text-sm sm:text-base text-app-main truncate">ตอน</h3>
+        </div>
+        <button id="btnCloseChapterNoteModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
+      </div>
+      <div class="p-5 overflow-y-auto flex-1">
+        <textarea id="inputChapterNote" rows="8" maxlength="20000" placeholder="ใส่เรื่องย่อของตอนนี้, จุดสำคัญ, ปมที่ต้องจำ, หรือข้อมูลเพิ่มเติมที่อยากจดไว้..."
+          class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
+      </div>
+      <div class="px-5 py-3.5 border-t border-app flex items-center justify-between gap-2">
+        <button id="btnClearChapterNote" type="button" class="px-3.5 py-2 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-semibold hover:bg-rose-500/20 transition">ล้างโน้ต</button>
+        <div class="flex items-center gap-2">
+          <button id="btnCancelChapterNote" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold">ยกเลิก</button>
+          <button id="btnSaveChapterNote" type="button" class="px-5 py-2 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm">บันทึก</button>
+        </div>
       </div>
     </div>
   </div>
@@ -668,6 +732,7 @@
       chapterSortAsc: true,
       editingNovelId: null,
       editingChapterId: null,
+      editingNoteChapterId: null,
       chapterModalMode: 'single',
       bulkParsedChapters: [],
       prefs: {
@@ -713,6 +778,67 @@
       const cleaned = String(text || '').trim();
       if (!cleaned) return 0;
       return cleaned.replace(/\s+/g, '').length;
+    }
+
+    async function copyTextToClipboard(text, successMsg) {
+      const str = String(text || '');
+      if (!str.trim()) {
+        showToast('ยังไม่มีเนื้อหาให้คัดลอกครับ');
+        return;
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(str);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = str;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast(successMsg);
+      } catch (err) {
+        showToast('คัดลอกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      }
+    }
+
+    function compressCoverImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('อ่านไฟล์รูปไม่สำเร็จ'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('ไฟล์นี้ไม่ใช่รูปภาพที่รองรับ'));
+          img.onload = () => {
+            const maxW = 360;
+            const maxH = 520;
+            const scale = Math.min(1, maxW / img.width, maxH / img.height);
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            let dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+            if (dataUrl.length > 190000) {
+              dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            }
+            if (dataUrl.length > 195000) {
+              reject(new Error('ไฟล์รูปยังมีขนาดใหญ่เกินไป กรุณาเลือกรูปขนาดเล็กลง'));
+              return;
+            }
+            resolve(dataUrl);
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
     function formatChaptersParagraphs(rawText) {
@@ -1051,6 +1177,7 @@
       const sorted = state.chapterSortAsc ? [...state.chapters] : [...state.chapters].reverse();
       for (const ch of sorted) {
         const isLast = novel.lastChapterId === ch.id;
+        const hasNote = Boolean(ch.note && String(ch.note).trim());
         const row = document.createElement('div');
         row.className = `py-3 px-2 flex items-center justify-between gap-2 rounded-xl hover:bg-app-subtle transition cursor-pointer ${isLast ? 'bg-app-accent-soft/50' : ''}`;
         row.innerHTML = `
@@ -1061,10 +1188,15 @@
           </div>
           <div class="flex items-center gap-1 shrink-0">
             <span class="hidden sm:inline text-[11px] text-app-sub mr-2">${Number(ch.wordCount || 0).toLocaleString()} ตัวอักษร</span>
+            <button type="button" class="btn-ch-note p-1.5 rounded-lg text-xs transition ${hasNote ? 'bg-app-accent-soft text-app-accent' : 'hover:bg-app-surface opacity-75 hover:opacity-100'}" title="เรื่องย่อ / ข้อมูลตอนนี้">📝</button>
             <button type="button" class="btn-ch-edit p-1.5 rounded-lg hover:bg-app-surface text-xs" title="แก้ไขตอน">✏️</button>
             <button type="button" class="btn-ch-del p-1.5 rounded-lg hover:bg-rose-500/15 text-rose-500 text-xs" title="ลบตอน">🗑️</button>
           </div>
         `;
+        row.querySelector('.btn-ch-note').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openChapterNoteModal(ch);
+        });
         row.querySelector('.btn-ch-edit').addEventListener('click', (e) => {
           e.stopPropagation();
           openChapterModal(ch);
@@ -1101,6 +1233,7 @@
       $('readerBodyOrder').textContent = `ตอนที่ ${Number(ch.order)}`;
       $('readerBodyTitle').textContent = ch.title;
       $('readerContent').innerHTML = formatChaptersParagraphs(ch.content);
+      updateReaderNoteIndicator(ch);
 
       const prevBtn = $('btnPrevChapter');
       const nextBtn = $('btnNextChapter');
@@ -1233,7 +1366,7 @@
             title,
             author: $('inputNovelAuthor').value.trim().slice(0, 120),
             status: $('inputNovelStatus').value,
-            coverUrl: $('inputNovelCover').value.trim().slice(0, 1000),
+            coverUrl: $('inputNovelCover').value.trim().slice(0, 200000),
             tags,
             synopsis: $('inputNovelSynopsis').value.trim().slice(0, 5000),
             isFavorite: $('inputNovelFav').checked,
@@ -1248,7 +1381,7 @@
             title,
             author: $('inputNovelAuthor').value.trim().slice(0, 120),
             status: $('inputNovelStatus').value,
-            coverUrl: $('inputNovelCover').value.trim().slice(0, 1000),
+            coverUrl: $('inputNovelCover').value.trim().slice(0, 200000),
             tags,
             synopsis: $('inputNovelSynopsis').value.trim().slice(0, 5000),
             isFavorite: $('inputNovelFav').checked,
@@ -1432,8 +1565,8 @@
           const order = Math.max(0, parseInt($('inputChapterOrder').value, 10) || 0);
           const title = $('inputChapterTitle').value.trim();
           const content = $('inputChapterContent').value.trim();
-          if (!title || !content) {
-            showToast('กรุณากรอกชื่อตอนและเนื้อหาครับ');
+          if (!title || (!state.editingChapterId && !content)) {
+            showToast(state.editingChapterId ? 'กรุณากรอกชื่อตอนครับ' : 'กรุณากรอกชื่อตอนและเนื้อหาครับ');
             return;
           }
           const payload = {
@@ -1516,6 +1649,77 @@
       a.click();
       URL.revokeObjectURL(url);
       showToast('ส่งออกไฟล์สำรอง JSON แล้ว');
+    }
+
+    function updateReaderNoteIndicator(ch) {
+      const btn = $('btnReaderChapterNote');
+      if (!btn) return;
+      const hasNote = Boolean(ch && ch.note && String(ch.note).trim());
+      btn.className = hasNote
+        ? 'px-2.5 py-1.5 rounded-xl bg-app-accent-soft text-app-accent border border-app text-xs font-semibold transition'
+        : 'px-2.5 py-1.5 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main transition';
+    }
+
+    function openChapterNoteModal(ch) {
+      if (!ch) return;
+      state.editingNoteChapterId = ch.id;
+      $('chapterNoteModalTitle').textContent = `#${Number(ch.order)} ${ch.title || 'ตอน'}`;
+      $('inputChapterNote').value = ch.note || '';
+      $('chapterNoteModalBackdrop').classList.remove('hidden');
+    }
+
+    async function saveChapterNote() {
+      const novel = getActiveNovel();
+      const ch = state.chapters.find((c) => c.id === state.editingNoteChapterId);
+      if (!state.user || !novel || !ch) return;
+
+      const note = $('inputChapterNote').value.slice(0, 20000);
+      const btn = $('btnSaveChapterNote');
+      btn.disabled = true;
+      try {
+        await updateDoc(
+          doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
+          { note, updatedAt: Date.now() }
+        );
+        ch.note = note;
+        renderChaptersList();
+        if (state.activeChapterId === ch.id) updateReaderNoteIndicator(ch);
+        $('chapterNoteModalBackdrop').classList.add('hidden');
+        showToast('บันทึกเรื่องย่อ / ข้อมูลตอนนี้แล้ว');
+      } catch (err) {
+        console.error('saveChapterNote failed:', err);
+        showToast('บันทึกไม่สำเร็จ: ' + (err.code || err.message));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function clearReaderChapterContent() {
+      const novel = getActiveNovel();
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      if (!state.user || !novel || !ch) return;
+      if (!ch.content || !String(ch.content).trim()) {
+        showToast('เนื้อหาตอนนี้ว่างอยู่แล้วครับ');
+        return;
+      }
+      if (!confirm(`ต้องการล้างเฉพาะเนื้อหานิยายของ "${ch.title}" ใช่หรือไม่? (ชื่อตอนและเรื่องย่อ/โน้ตจะยังอยู่ครบ)`)) return;
+
+      try {
+        const now = Date.now();
+        await updateDoc(
+          doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id),
+          { content: '', wordCount: 0, updatedAt: now }
+        );
+        ch.content = '';
+        ch.wordCount = 0;
+        ch.updatedAt = now;
+        $('readerContent').innerHTML = formatChaptersParagraphs('');
+        renderChaptersList();
+        showToast('ล้างเนื้อหาตอนนี้แล้ว (ชื่อตอนและโน้ตยังอยู่)');
+      } catch (err) {
+        console.error('clearReaderChapterContent failed:', err);
+        showToast('ล้างเนื้อหาไม่สำเร็จ: ' + (err.code || err.message));
+      }
     }
 
     // =====================================================================
@@ -1701,10 +1905,19 @@
     $('btnReaderBack').addEventListener('click', () => openNovelDetail(state.activeNovelId));
     $('btnBottomToc').addEventListener('click', () => openNovelDetail(state.activeNovelId));
     $('btnReaderSettingsToggle').addEventListener('click', () => $('readerSettingsPanel').classList.toggle('hidden'));
+    $('btnReaderChapterNote').addEventListener('click', () => {
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      if (ch) openChapterNoteModal(ch);
+    });
     $('btnReaderEditChapter').addEventListener('click', () => {
       const ch = state.chapters.find((c) => c.id === state.activeChapterId);
       if (ch) openChapterModal(ch);
     });
+    $('btnReaderCopyContent').addEventListener('click', () => {
+      const ch = state.chapters.find((c) => c.id === state.activeChapterId);
+      if (ch) copyTextToClipboard(ch.content, 'คัดลอกเนื้อหานิยายตอนนี้แล้ว');
+    });
+    $('btnReaderClearContent').addEventListener('click', clearReaderChapterContent);
     $('btnReaderTocDrawer').addEventListener('click', () => $('tocDrawerBackdrop').classList.remove('hidden'));
     $('btnCloseTocDrawer').addEventListener('click', () => $('tocDrawerBackdrop').classList.add('hidden'));
     $('tocDrawerBackdrop').addEventListener('click', (e) => {
@@ -1714,6 +1927,23 @@
 
     // Novel Modal
     $('inputNovelCover').addEventListener('input', updateCoverPreview);
+    $('inputNovelCoverFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        const dataUrl = await compressCoverImage(file);
+        $('inputNovelCover').value = dataUrl;
+        updateCoverPreview();
+        showToast('อัปโหลดและย่อขนาดรูปปกพร้อมใช้แล้ว');
+      } catch (err) {
+        showToast(err?.message || 'ไม่สามารถใช้รูปนี้ได้');
+      }
+    });
+    $('btnClearNovelCover').addEventListener('click', () => {
+      $('inputNovelCover').value = '';
+      updateCoverPreview();
+    });
     $('btnCloseNovelModal').addEventListener('click', () => $('novelModalBackdrop').classList.add('hidden'));
     $('btnCancelNovelModal').addEventListener('click', () => $('novelModalBackdrop').classList.add('hidden'));
     $('btnSaveNovelModal').addEventListener('click', saveNovelFromModal);
@@ -1724,6 +1954,28 @@
     $('btnCloseChapterModal').addEventListener('click', () => $('chapterModalBackdrop').classList.add('hidden'));
     $('btnCancelChapterModal').addEventListener('click', () => $('chapterModalBackdrop').classList.add('hidden'));
     $('btnSaveChapterModal').addEventListener('click', saveChapterFromModal);
+    $('btnModalCopyContent').addEventListener('click', () => {
+      copyTextToClipboard($('inputChapterContent').value, 'คัดลอกเนื้อหานิยายแล้ว');
+    });
+    $('btnModalClearContent').addEventListener('click', () => {
+      if (!$('inputChapterContent').value.trim()) return;
+      if (confirm('ต้องการล้างเฉพาะเนื้อหาในช่องนี้ใช่หรือไม่?')) {
+        $('inputChapterContent').value = '';
+      }
+    });
+
+    // Chapter Note Popup Modal
+    $('btnCloseChapterNoteModal').addEventListener('click', () => $('chapterNoteModalBackdrop').classList.add('hidden'));
+    $('btnCancelChapterNote').addEventListener('click', () => $('chapterNoteModalBackdrop').classList.add('hidden'));
+    $('chapterNoteModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('chapterNoteModalBackdrop')) $('chapterNoteModalBackdrop').classList.add('hidden');
+    });
+    $('btnClearChapterNote').addEventListener('click', () => {
+      if ($('inputChapterNote').value && confirm('ต้องการล้างข้อความในโน้ตตอนนี้ใช่หรือไม่?')) {
+        $('inputChapterNote').value = '';
+      }
+    });
+    $('btnSaveChapterNote').addEventListener('click', saveChapterNote);
     document.querySelectorAll('[data-ch-mode]').forEach((btn) => {
       btn.addEventListener('click', () => setChapterModalMode(btn.getAttribute('data-ch-mode')));
     });

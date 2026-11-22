@@ -25,7 +25,7 @@ rules_version = '2';
 //      - createdAt: number (required, immutable after creation, 0..9,999,999,999,999)
 //      - updatedAt: number (required, 0..9,999,999,999,999)
 //      - author: string (optional, <= 120 chars)
-//      - coverUrl: string (optional, <= 1,000 chars)
+//      - coverUrl: string (optional, <= 200,000 chars)
 //      - synopsis: string (optional, <= 5,000 chars)
 //      - tags: list<string> (optional, <= 20 items, each string <= 120 chars)
 //      - notes: string (optional, <= 25,000 chars)
@@ -35,13 +35,14 @@ rules_version = '2';
 //      - lastScrollRatio: number (optional, 0..1)
 //
 // 3. Collection: users/{userId}/readerNovels/{novelId}/chapters/{chapterId}
-//    Fields (all required):
-//      - order: number (0..1,000,000)
-//      - title: string (1..200 chars)
-//      - content: string (<= 800,000 chars)
-//      - wordCount: number (0..2,000,000)
-//      - createdAt: number (immutable after creation, 0..9,999,999,999,999)
-//      - updatedAt: number (0..9,999,999,999,999)
+//    Fields:
+//      - order: number (required, 0..1,000,000)
+//      - title: string (required, 1..200 chars)
+//      - content: string (required, <= 800,000 chars)
+//      - wordCount: number (required, 0..2,000,000)
+//      - note: string (optional, <= 20,000 chars)
+//      - createdAt: number (required, immutable after creation, 0..9,999,999,999,999)
+//      - updatedAt: number (required, 0..9,999,999,999,999)
 //
 // 4. Collection: users/{userId}/readerMeta/{docId}
 //    Fields (all required):
@@ -143,7 +144,7 @@ service cloud.firestore {
              isValidEpochMs(data.createdAt) &&
              isValidEpochMs(data.updatedAt) &&
              (!('author' in data) || (data.author is string && data.author.size() <= 120)) &&
-             (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 1000)) &&
+             (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 200000)) &&
              (!('synopsis' in data) || (data.synopsis is string && data.synopsis.size() <= 5000)) &&
              (!('tags' in data) || isValidTagList(data.tags)) &&
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 25000)) &&
@@ -155,12 +156,13 @@ service cloud.firestore {
 
     // Validator for Private Novel Reader chapter documents
     function isValidChapter(data) {
-      return hasOnlyAllowedFields(data, ['order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt']) &&
+      return hasOnlyAllowedFields(data, ['order', 'title', 'content', 'wordCount', 'note', 'createdAt', 'updatedAt']) &&
              hasRequiredFields(data, ['order', 'title', 'content', 'wordCount', 'createdAt', 'updatedAt']) &&
              data.order is number && data.order >= 0 && data.order <= 1000000 &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
              data.content is string && data.content.size() <= 800000 &&
              data.wordCount is number && data.wordCount >= 0 && data.wordCount <= 2000000 &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 20000)) &&
              isValidEpochMs(data.createdAt) &&
              isValidEpochMs(data.updatedAt);
     }
