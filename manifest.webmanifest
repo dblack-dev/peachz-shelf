@@ -1,0 +1,24 @@
+{
+  "name": "Peachz Shelf — คลังอ่านนิยายส่วนตัว",
+  "short_name": "Peachz Shelf",
+  "description": "คลังอ่านนิยายส่วนตัว ซิงค์ข้ามอุปกรณ์ และอ่านแบบออฟไลน์ได้",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#e11d48",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
