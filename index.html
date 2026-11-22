@@ -658,7 +658,7 @@
       <div id="panelBulkChapter" class="hidden p-5 space-y-3 overflow-y-auto flex-1 text-xs sm:text-sm">
         <div class="p-3 rounded-2xl bg-app-subtle border border-app text-xs text-app-sub leading-relaxed space-y-1">
           <div class="font-semibold text-app-main">วิธีแบ่งตอนอัตโนมัติ</div>
-          <p>ระบบจะแยกตอนให้อัตโนมัติทุกบรรทัดที่ขึ้นต้นด้วย <code>บทที่ ...</code>, <code>ตอนที่ ...</code>, <code>Chapter ...</code> หรือ <code>### ...</code></p>
+          <p>ระบบจะแยกตอนให้อัตโนมัติทุกบรรทัดที่ขึ้นต้นด้วย <code>บทที่ ...</code>, <code>ตอนที่ ...</code>, <code>Chapter ...</code>, <code>第...章</code>, <code>番外...</code> หรือ <code>### ...</code></p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <label class="px-3.5 py-2 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main cursor-pointer hover:opacity-85 transition">
@@ -1578,7 +1578,7 @@
 
     function parseBulkChapters(rawText) {
       const lines = String(rawText || '').replace(/\r\n/g, '\n').split('\n');
-      const headingRegex = /^(?:บทที่|ตอนที่|Chapter|CHAPTER|###)\s*.+/;
+      const headingRegex = /^(?:(?:บทที่|ตอนที่|Chapter|CHAPTER|###)\s*.+|第\s*[0-9零一二三四五六七八九十百千万两]+\s*[章节回集卷].*|番外.*)/;
       const sections = [];
       let currentTitle = '';
       let currentLines = [];
@@ -1833,71 +1833,95 @@
     // =====================================================================
     // IMPORT JSON, EXPORT EPUB, SEARCH IN NOVEL, SUMMARY TIMELINE & REORDER
     // =====================================================================
+    async function importNovelDataObject(data) {
+      if (!state.user || !data || !data.novel || typeof data.novel.title !== 'string' || !data.novel.title.trim()) {
+        throw new Error('ไฟล์ JSON ไม่ถูกต้อง (ไม่พบชื่อเรื่อง)');
+      }
+      const srcNovel = data.novel;
+      const srcChapters = Array.isArray(data.chapters) ? data.chapters : [];
+      const now = Date.now();
+
+      const validStatus = ['reading', 'completed', 'plan'].includes(srcNovel.status) ? srcNovel.status : 'reading';
+      const tags = Array.isArray(srcNovel.tags)
+        ? srcNovel.tags.map((t) => String(t).trim().slice(0, 120)).filter(Boolean).slice(0, 20)
+        : [];
+
+      const novelPayload = {
+        title: String(srcNovel.title).trim().slice(0, 200),
+        author: String(srcNovel.author || '').trim().slice(0, 120),
+        coverUrl: String(srcNovel.coverUrl || '').trim().slice(0, 200000),
+        synopsis: String(srcNovel.synopsis || '').trim().slice(0, 5000),
+        tags,
+        status: validStatus,
+        isFavorite: Boolean(srcNovel.isFavorite),
+        notes: String(srcNovel.notes || '').slice(0, 25000),
+        chapterCount: srcChapters.length,
+        lastChapterId: '',
+        lastChapterTitle: '',
+        lastChapterOrder: 0,
+        lastScrollRatio: 0,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      const novelRef = await addDoc(collection(db, 'users', state.user.uid, 'readerNovels'), novelPayload);
+      const colRef = collection(db, 'users', state.user.uid, 'readerNovels', novelRef.id, 'chapters');
+
+      for (let i = 0; i < srcChapters.length; i += 400) {
+        const batch = writeBatch(db);
+        const chunk = srcChapters.slice(i, i + 400);
+        chunk.forEach((ch, offset) => {
+          const content = String(ch?.content || '').slice(0, 800000);
+          const chPayload = {
+            order: Number.isFinite(Number(ch?.order)) ? Math.max(0, Number(ch.order)) : (i + offset + 1),
+            title: String(ch?.title || `ตอนที่ ${i + offset + 1}`).trim().slice(0, 200) || `ตอนที่ ${i + offset + 1}`,
+            content,
+            wordCount: countWordsApprox(content),
+            createdAt: now,
+            updatedAt: now
+          };
+          if (ch?.note) {
+            chPayload.note = String(ch.note).slice(0, 20000);
+          }
+          batch.set(doc(colRef), chPayload);
+        });
+        await batch.commit();
+      }
+
+      await loadNovels();
+      showToast(`นำเข้า "${novelPayload.title}" (${srcChapters.length} ตอน) แล้ว`);
+    }
+
     async function importNovelFromJson(file) {
       if (!state.user || !file) return;
       try {
         const raw = await file.text();
         const data = JSON.parse(raw);
-        if (!data || !data.novel || typeof data.novel.title !== 'string' || !data.novel.title.trim()) {
-          showToast('ไฟล์ JSON ไม่ถูกต้อง (ไม่พบชื่อเรื่อง)');
-          return;
-        }
-        const srcNovel = data.novel;
-        const srcChapters = Array.isArray(data.chapters) ? data.chapters : [];
-        const now = Date.now();
-
-        const validStatus = ['reading', 'completed', 'plan'].includes(srcNovel.status) ? srcNovel.status : 'reading';
-        const tags = Array.isArray(srcNovel.tags)
-          ? srcNovel.tags.map((t) => String(t).trim().slice(0, 120)).filter(Boolean).slice(0, 20)
-          : [];
-
-        const novelPayload = {
-          title: String(srcNovel.title).trim().slice(0, 200),
-          author: String(srcNovel.author || '').trim().slice(0, 120),
-          coverUrl: String(srcNovel.coverUrl || '').trim().slice(0, 200000),
-          synopsis: String(srcNovel.synopsis || '').trim().slice(0, 5000),
-          tags,
-          status: validStatus,
-          isFavorite: Boolean(srcNovel.isFavorite),
-          notes: String(srcNovel.notes || '').slice(0, 25000),
-          chapterCount: srcChapters.length,
-          lastChapterId: '',
-          lastChapterTitle: '',
-          lastChapterOrder: 0,
-          lastScrollRatio: 0,
-          createdAt: now,
-          updatedAt: now
-        };
-
-        const novelRef = await addDoc(collection(db, 'users', state.user.uid, 'readerNovels'), novelPayload);
-        const colRef = collection(db, 'users', state.user.uid, 'readerNovels', novelRef.id, 'chapters');
-
-        for (let i = 0; i < srcChapters.length; i += 400) {
-          const batch = writeBatch(db);
-          const chunk = srcChapters.slice(i, i + 400);
-          chunk.forEach((ch, offset) => {
-            const content = String(ch?.content || '').slice(0, 800000);
-            const chPayload = {
-              order: Number.isFinite(Number(ch?.order)) ? Math.max(0, Number(ch.order)) : (i + offset + 1),
-              title: String(ch?.title || `ตอนที่ ${i + offset + 1}`).trim().slice(0, 200) || `ตอนที่ ${i + offset + 1}`,
-              content,
-              wordCount: countWordsApprox(content),
-              createdAt: now,
-              updatedAt: now
-            };
-            if (ch?.note) {
-              chPayload.note = String(ch.note).slice(0, 20000);
-            }
-            batch.set(doc(colRef), chPayload);
-          });
-          await batch.commit();
-        }
-
-        await loadNovels();
-        showToast(`นำเข้า "${novelPayload.title}" (${srcChapters.length} ตอน) แล้ว`);
+        await importNovelDataObject(data);
       } catch (err) {
         console.error('importNovelFromJson failed:', err);
         showToast('นำเข้า JSON ไม่สำเร็จ: ' + (err?.message || 'รูปแบบไฟล์ไม่ถูกต้อง'));
+      }
+    }
+
+    async function autoSeedBundledNovelsIfNeeded() {
+      if (!state.user) return;
+      const seedKey = 'peachz_seeded_171915_' + state.user.uid;
+      if (localStorage.getItem(seedKey)) return;
+      if (state.novels.some((n) => n.title === '小白楊')) {
+        localStorage.setItem(seedKey, '1');
+        return;
+      }
+      try {
+        localStorage.setItem(seedKey, '1');
+        showToast('กำลังนำเข้าเรื่อง "小白楊" (135 ตอน) เข้าชั้นหนังสือ...');
+        const res = await fetch('./xbanxia_171915.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        await importNovelDataObject(data);
+      } catch (err) {
+        localStorage.removeItem(seedKey);
+        console.warn('autoSeedBundledNovelsIfNeeded skipped:', err);
       }
     }
 
@@ -2302,6 +2326,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       renderUserHeader(user);
       showView('library');
       await Promise.all([loadCloudPrefs(), loadNovels()]);
+      await autoSeedBundledNovelsIfNeeded();
     });
 
     getRedirectResult(auth).catch((err) => {
