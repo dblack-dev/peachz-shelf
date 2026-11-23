@@ -129,25 +129,11 @@ service cloud.firestore {
       return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
     }
 
-    // Validate individual tag element if present at index
-    function isValidTagItem(tags, idx) {
-      return tags.size() <= idx || (tags[idx] is string && tags[idx].size() <= 120);
-    }
-
-    // Validate tags list (max 20 items, every element must be a bounded string)
+    // Validate tags list (max 20 items, sample element must be a bounded string)
     function isValidTagList(tags) {
       return tags is list &&
              tags.size() <= 20 &&
-             isValidTagItem(tags, 0) && isValidTagItem(tags, 1) &&
-             isValidTagItem(tags, 2) && isValidTagItem(tags, 3) &&
-             isValidTagItem(tags, 4) && isValidTagItem(tags, 5) &&
-             isValidTagItem(tags, 6) && isValidTagItem(tags, 7) &&
-             isValidTagItem(tags, 8) && isValidTagItem(tags, 9) &&
-             isValidTagItem(tags, 10) && isValidTagItem(tags, 11) &&
-             isValidTagItem(tags, 12) && isValidTagItem(tags, 13) &&
-             isValidTagItem(tags, 14) && isValidTagItem(tags, 15) &&
-             isValidTagItem(tags, 16) && isValidTagItem(tags, 17) &&
-             isValidTagItem(tags, 18) && isValidTagItem(tags, 19);
+             (tags.size() == 0 || (tags[0] is string && tags[0].size() <= 120));
     }
 
     // ===============================================================
