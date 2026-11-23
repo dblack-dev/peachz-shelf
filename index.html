@@ -307,6 +307,14 @@
               class="px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition">
               ↕️ จัดลำดับเอง
             </button>
+            <button id="btnToggleTagFilterBar" type="button"
+              class="hidden px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition">
+              🏷️ แท็กเรื่อง (0) ▾
+            </button>
+            <button id="btnToggleCharFilterBar" type="button"
+              class="hidden px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition">
+              👥 ตัวละคร (0) ▾
+            </button>
           </div>
           <span class="text-[11px] text-app-sub">กด 📌 เพื่อปักหมุดเล่มโปรดไว้บนสุด • กด 🔖 ในตอนเพื่อคั่นหน้าอ่านถึงไหน</span>
         </div>
@@ -324,11 +332,11 @@
         <div id="libraryTagCharFilters" class="hidden p-3 rounded-2xl bg-app-surface border border-app space-y-2 shadow-sm">
           <div id="libraryTagRow" class="hidden flex items-start gap-2">
             <span class="text-[11px] font-semibold text-app-sub shrink-0 pt-1">🏷️ แท็กเรื่อง:</span>
-            <div id="libraryTagPills" class="flex flex-wrap gap-1.5 flex-1"></div>
+            <div id="libraryTagPills" class="flex flex-wrap gap-1.5 flex-1 max-h-40 overflow-y-auto pr-1"></div>
           </div>
           <div id="libraryCharRow" class="hidden flex items-start gap-2">
             <span class="text-[11px] font-semibold text-app-sub shrink-0 pt-1">👥 ตัวละคร:</span>
-            <div id="libraryCharPills" class="flex flex-wrap gap-1.5 flex-1"></div>
+            <div id="libraryCharPills" class="flex flex-wrap gap-1.5 flex-1 max-h-40 overflow-y-auto pr-1"></div>
           </div>
           <div id="libraryActiveFilterBanner" class="hidden pt-2 border-t border-app/60 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
         </div>
@@ -1651,6 +1659,8 @@
       activeTag: '',
       activeCharacter: '',
       activeCharacterRole: 'all',
+      showLibraryTagPanel: false,
+      showLibraryCharPanel: false,
       libraryManualReorderMode: false,
       shelfOrg: {
         sortMode: 'updated_desc',
@@ -2493,14 +2503,37 @@
         });
 
       const hasAnyFilter = Boolean(state.activeTag || state.activeCharacter);
-      if (tagEntries.length === 0 && charEntries.length === 0 && !hasAnyFilter) {
+      const showTagRow = Boolean(state.showLibraryTagPanel && tagEntries.length > 0);
+      const showCharRow = Boolean(state.showLibraryCharPanel && charEntries.length > 0);
+
+      const syncDrawerToggleBtn = (btn, label, count, isOpen, isFiltering) => {
+        if (!btn) return;
+        if (count === 0) {
+          btn.classList.add('hidden');
+          return;
+        }
+        btn.classList.remove('hidden');
+        btn.textContent = `${label} (${count}) ${isOpen ? '▴' : '▾'}`;
+        if (isOpen) {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-app-accent text-white text-xs font-semibold shadow-sm transition';
+        } else if (isFiltering) {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-app-accent-soft border border-app text-app-accent text-xs font-semibold transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-app-surface border border-app text-xs font-semibold text-app-main hover:opacity-85 transition';
+        }
+      };
+
+      syncDrawerToggleBtn($('btnToggleTagFilterBar'), '🏷️ แท็กเรื่อง', tagEntries.length, state.showLibraryTagPanel, Boolean(state.activeTag));
+      syncDrawerToggleBtn($('btnToggleCharFilterBar'), '👥 ตัวละคร', charEntries.length, state.showLibraryCharPanel, Boolean(state.activeCharacter));
+
+      if (!showTagRow && !showCharRow && !hasAnyFilter) {
         wrap.classList.add('hidden');
         return;
       }
       wrap.classList.remove('hidden');
 
       tagPills.innerHTML = '';
-      if (tagEntries.length > 0) {
+      if (showTagRow) {
         tagRow.classList.remove('hidden');
         const activeTagKey = normalizeTagKey(state.activeTag);
         for (const entry of tagEntries) {
@@ -2521,7 +2554,7 @@
       }
 
       charPills.innerHTML = '';
-      if (charEntries.length > 0) {
+      if (showCharRow) {
         charRow.classList.remove('hidden');
         const activeCharKey = normalizeTagKey(state.activeCharacter);
         for (const entry of charEntries) {
@@ -2561,7 +2594,7 @@
         banner.classList.add('hidden');
         return;
       }
-      banner.classList.remove('hidden');
+      banner.className = `${(showTagRow || showCharRow) ? 'pt-2 border-t border-app/60 ' : ''}flex flex-wrap items-center justify-between gap-2 text-xs`;
 
       const leftWrap = document.createElement('div');
       leftWrap.className = 'flex flex-wrap items-center gap-2';
@@ -6134,6 +6167,14 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     $('btnFinishLibraryManualSort').addEventListener('click', () => {
       state.libraryManualReorderMode = false;
       renderLibrary();
+    });
+    $('btnToggleTagFilterBar').addEventListener('click', () => {
+      state.showLibraryTagPanel = !state.showLibraryTagPanel;
+      renderLibraryTagCharBars();
+    });
+    $('btnToggleCharFilterBar').addEventListener('click', () => {
+      state.showLibraryCharPanel = !state.showLibraryCharPanel;
+      renderLibraryTagCharBars();
     });
     $('btnOpenAddNovel').addEventListener('click', () => openNovelModal(null));
     $('btnEmptyAddNovel').addEventListener('click', () => openNovelModal(null));
