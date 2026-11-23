@@ -440,7 +440,16 @@
               ไปที่ตอนคั่นหน้า →
             </button>
           </div>
-          <p id="detailSynopsis" class="text-xs sm:text-sm text-app-sub leading-relaxed whitespace-pre-line"></p>
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <span class="text-[11px] font-semibold text-app-sub">เรื่องย่อ / คำโปรย</span>
+              <button id="btnOpenAiSynopsisModal" type="button"
+                class="px-2.5 py-1 rounded-xl bg-amber-500/12 border border-amber-400/35 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition">
+                ✨ ให้ AI เขียนเรื่องย่อ / คำโปรย
+              </button>
+            </div>
+            <p id="detailSynopsis" class="text-xs sm:text-sm text-app-sub leading-relaxed whitespace-pre-line"></p>
+          </div>
 
           <div class="pt-2 flex flex-wrap items-center gap-2.5">
             <select id="detailStatusSelect"
@@ -898,7 +907,13 @@
             class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
         </div>
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">เรื่องย่อฉบับแปล <span class="text-app-sub font-normal">(ไม่บังคับ)</span></label>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label for="inputNovelTranslatedSynopsis" class="font-semibold text-app-main">เรื่องย่อฉบับแปล <span class="text-app-sub font-normal">(ไม่บังคับ)</span></label>
+            <button id="btnModalOpenAiSynopsis" type="button"
+              class="px-2.5 py-1 rounded-xl bg-amber-500/12 border border-amber-400/35 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition">
+              ✨ ให้ AI ช่วยเขียนเรื่องย่อ
+            </button>
+          </div>
           <textarea id="inputNovelTranslatedSynopsis" rows="3" maxlength="10000" placeholder="ถ้าใส่ ระบบจะแสดงข้อความนี้ในหน้ารายละเอียด (ลบออกได้)"
             class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
         </div>
@@ -1341,6 +1356,58 @@
       class="px-2 py-1 rounded-xl text-white/70 hover:text-white hover:bg-white/10 text-[11px] font-bold transition">
       ✕
     </button>
+  </div>
+
+  <!-- =====================================================================
+       MODAL: AI SYNOPSIS / BLURB GENERATOR
+       ===================================================================== -->
+  <div id="aiSynopsisModalBackdrop" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl bg-app-surface border border-app rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div class="px-5 py-4 border-b border-app flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <h3 class="font-bold text-base text-app-main">✨ ให้ AI เขียนเรื่องย่อ / คำโปรย</h3>
+          <p id="aiSynopsisModalSubtitle" class="text-[11px] text-app-sub truncate">เรียบเรียงจากเนื้อหาช่วงต้นและข้อมูลตัวละครให้อ่านรู้เรื่องชัดเจน</p>
+        </div>
+        <button id="btnCloseAiSynopsisModal" type="button" class="p-1.5 rounded-xl bg-app-subtle text-app-sub hover:text-app-main shrink-0">✕</button>
+      </div>
+      <div class="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <div class="p-3.5 rounded-2xl bg-app-subtle border border-app space-y-2.5">
+          <div class="space-y-1">
+            <label for="selectAiSynopsisStyle" class="font-semibold text-app-main block">📝 สไตล์การเขียนเรื่องย่อ</label>
+            <select id="selectAiSynopsisStyle" class="w-full px-3 py-2 rounded-xl bg-app-surface border border-app text-app-main text-xs font-medium focus:outline-none">
+              <option value="detailed_story">📖 เล่าละเอียดเข้าใจง่าย (ปูตัวละคร + จุดเริ่มต้น + ปมหลักครบ 3–5 ย่อหน้า ไม่ห้วน)</option>
+              <option value="hook_blurb">🔥 คำโปรยชวนติดตามเข้มข้น (เน้นเคมีตัวหลัก + ปมขัดแย้ง + เสน่ห์ของเรื่องแบบละเอียด)</option>
+              <option value="plot_overview">🧭 สรุปภาพรวมเนื้อเรื่อง &amp; เซ็ตติ้งชัดเจน (เหมาะกับปูพื้นก่อนเริ่มอ่าน)</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-[11px] text-app-sub">อ่านเทียบของเดิมแล้วเลือกได้ว่าจะใช้ที่ AI เขียนหรือไม่ใช้</span>
+            <button id="btnGenerateAiSynopsis" type="button"
+              class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition">
+              ✨ ให้ AI เขียนเรื่องย่อใหม่
+            </button>
+          </div>
+        </div>
+
+        <details id="aiSynopsisCurrentBox" class="p-3 rounded-2xl bg-app-subtle/70 border border-app text-xs">
+          <summary class="cursor-pointer font-semibold text-app-sub select-none">📄 ดูเรื่องย่อ / คำโปรยปัจจุบัน (เทียบก่อนตัดสินใจ)</summary>
+          <p id="aiSynopsisCurrentText" class="mt-2 text-app-main leading-relaxed whitespace-pre-line max-h-36 overflow-y-auto"></p>
+        </details>
+
+        <div class="space-y-1">
+          <label for="inputAiSynopsisDraft" class="font-semibold text-app-main text-xs">ผลลัพธ์จาก AI (สามารถแก้ไขเพิ่มเติมเองก่อนเลือกใช้งานได้)</label>
+          <textarea id="inputAiSynopsisDraft" rows="9" maxlength="10000" placeholder="กดปุ่ม '✨ ให้ AI เขียนเรื่องย่อใหม่' ด้านบน เพื่อให้ AI เรียบเรียงเรื่องย่อแบบละเอียดอ่านง่าย..."
+            class="w-full p-3.5 rounded-2xl bg-app-subtle border border-app text-xs sm:text-sm text-app-main leading-relaxed placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-amber-400"></textarea>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 border-t border-app flex items-center justify-between gap-2 flex-wrap">
+        <button id="btnCancelAiSynopsis" type="button" class="px-4 py-2 rounded-xl bg-app-subtle text-app-sub text-xs font-semibold hover:text-app-main transition">ไม่ใช้ / ปิด</button>
+        <div class="flex items-center gap-2">
+          <button id="btnCopyAiSynopsis" type="button" class="px-3.5 py-2 rounded-xl bg-app-subtle border border-app text-xs font-semibold text-app-main hover:opacity-85 transition">📋 คัดลอก</button>
+          <button id="btnApplyAiSynopsis" type="button" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition">✅ ใช้เป็นเรื่องย่อของเรื่องนี้</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- =====================================================================
@@ -6877,6 +6944,189 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     }
 
     // ---------------------------------------------------------------------
+    // FEATURE 2B: AI DETAILED SYNOPSIS / BLURB GENERATOR
+    // ---------------------------------------------------------------------
+    const aiSynopsisDraftCache = new Map();
+
+    function getSynopsisTargetContextInfo() {
+      const modalOpen = !$('novelModalBackdrop').classList.contains('hidden');
+      const savedNovel = modalOpen
+        ? (state.novels.find((n) => n.id === state.editingNovelId) || null)
+        : getActiveNovel();
+
+      if (modalOpen) {
+        const draftNovel = {
+          ...(savedNovel || {}),
+          id: savedNovel?.id || '__draft__',
+          title: $('inputNovelTitle').value.trim() || savedNovel?.title || '',
+          translatedTitle: $('inputNovelTranslatedTitle').value.trim(),
+          author: $('inputNovelAuthor').value.trim(),
+          tags: parseTagListInput($('inputNovelTags').value),
+          mainCharacters: parseTagListInput($('inputNovelMainChars').value),
+          supportingCharacters: parseTagListInput($('inputNovelSupportingChars').value),
+          synopsis: $('inputNovelSynopsis').value.trim(),
+          translatedSynopsis: $('inputNovelTranslatedSynopsis').value.trim()
+        };
+        const chapters = (savedNovel && state.activeNovelId === savedNovel.id) ? getSortedChaptersAsc() : [];
+        return { novel: draftNovel, chapters, fromModal: true, savedNovel };
+      }
+
+      return {
+        novel: savedNovel,
+        chapters: savedNovel ? getSortedChaptersAsc() : [],
+        fromModal: false,
+        savedNovel
+      };
+    }
+
+    function buildSynopsisGenerationContext(novel, chapters, charBudget = 36000) {
+      if (!novel) return '';
+      const headerParts = [
+        novel.translatedTitle ? `ชื่อเรื่อง (ไทย): ${novel.translatedTitle}` : '',
+        novel.title ? `ชื่อเรื่อง (ต้นฉบับ): ${novel.title}` : '',
+        novel.author ? `ผู้แต่ง: ${novel.author}` : '',
+        Array.isArray(novel.tags) && novel.tags.length ? `แท็กแนวเรื่อง: ${novel.tags.join(', ')}` : '',
+        Array.isArray(novel.mainCharacters) && novel.mainCharacters.length ? `ตัวละครหลัก: ${novel.mainCharacters.join(', ')}` : '',
+        Array.isArray(novel.supportingCharacters) && novel.supportingCharacters.length ? `ตัวละครรอง: ${novel.supportingCharacters.join(', ')}` : '',
+        novel.synopsis ? `เรื่องย่อเดิม (ต้นฉบับ):\n${novel.synopsis.slice(0, 4000)}` : '',
+        novel.translatedSynopsis ? `เรื่องย่อปัจจุบัน:\n${novel.translatedSynopsis.slice(0, 4000)}` : '',
+        novel.characterWiki ? `ข้อมูลตัวละครเพิ่มเติม:\n${String(novel.characterWiki).trim().slice(0, 4000)}` : '',
+        novel.glossary ? `สมุดคำศัพท์/ชื่อเฉพาะ:\n${String(novel.glossary).trim().slice(0, 2500)}` : '',
+        novel.storyRecap ? `สรุปเนื้อเรื่อง:\n${String(novel.storyRecap).trim().slice(0, 3500)}` : '',
+        novel.notes ? `โน้ตเพิ่มเติม:\n${String(novel.notes).trim().slice(0, 2000)}` : ''
+      ].filter(Boolean);
+
+      const headerText = headerParts.join('\n\n');
+      if (!Array.isArray(chapters) || chapters.length === 0) return headerText;
+
+      let remaining = Math.max(4000, charBudget - headerText.length);
+      const chapterBlocks = [];
+
+      const openingChapters = chapters.slice(0, 8);
+      for (const ch of openingChapters) {
+        if (remaining < 400) break;
+        const chTitle = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
+        const noteStr = String(ch.note || '').trim().slice(0, 800);
+        const bodyStr = String(ch.translatedContent || ch.content || '').trim().slice(0, Math.min(2800, remaining - 200));
+        const block = `[${chTitle}]${noteStr ? `\nสรุปตอน: ${noteStr}` : ''}${bodyStr ? `\nเนื้อหา:\n${bodyStr}` : ''}`;
+        chapterBlocks.push(block);
+        remaining -= (block.length + 2);
+      }
+
+      const laterNotes = chapters.slice(8, 45).filter((c) => c.note && String(c.note).trim());
+      for (const ch of laterNotes) {
+        if (remaining < 250) break;
+        const chTitle = `#${Number(ch.order)} ${ch.translatedTitle || ch.title}`;
+        const block = `[${chTitle}] สรุปตอน: ${String(ch.note).trim().slice(0, 500)}`;
+        chapterBlocks.push(block);
+        remaining -= (block.length + 2);
+      }
+
+      return `${headerText}\n\n=== เนื้อหาช่วงเปิดเรื่อง & ภาพรวมตอน (${chapters.length} ตอนทั้งหมด) ===\n${chapterBlocks.join('\n\n')}`;
+    }
+
+    function openAiSynopsisModal() {
+      const { novel } = getSynopsisTargetContextInfo();
+      if (!novel) return;
+
+      const displayTitle = novel.translatedTitle || novel.title || 'เรื่องใหม่';
+      const currentSynopsis = novel.translatedSynopsis || novel.synopsis || '';
+      const cacheKey = novel.id || '__draft__';
+
+      $('aiSynopsisModalSubtitle').textContent = displayTitle;
+      $('aiSynopsisCurrentText').textContent = currentSynopsis || '(ยังไม่มีเรื่องย่อเดิม)';
+      $('aiSynopsisCurrentBox').open = false;
+      $('inputAiSynopsisDraft').value = aiSynopsisDraftCache.get(cacheKey) || '';
+      $('aiSynopsisModalBackdrop').classList.remove('hidden');
+    }
+
+    async function generateAiSynopsis() {
+      if (!requireGeminiKeyOrOpenSettings('เขียนเรื่องย่อ/คำโปรย')) return;
+      const { novel, chapters } = getSynopsisTargetContextInfo();
+      if (!novel) return;
+
+      const ctx = buildSynopsisGenerationContext(novel, chapters, 36000);
+      if (!ctx.trim() || (!chapters.length && !novel.synopsis && !novel.translatedSynopsis && !novel.characterWiki && !novel.storyRecap && !novel.notes)) {
+        showToast('กรุณาเพิ่มตอนนิยาย หรือใส่เรื่องย่อต้นฉบับ/ข้อมูลเบื้องต้นก่อนนะครับ');
+        return;
+      }
+
+      const style = $('selectAiSynopsisStyle').value || 'detailed_story';
+      const styleInstructions = {
+        detailed_story: 'เล่าเรื่องย่อแบบละเอียดชัดเจนและลื่นไหล (ความยาว 3–5 ย่อหน้าเต็ม ประมาณ 200–400 คำ) ปูครบทั้ง (1) ตัวละครหลักเป็นใคร มีนิสัย ภูมิหลัง และสถานะอะไร (2) จุดเริ่มต้น/เหตุการณ์พลิกผันที่พามาพัวพันกัน (3) ปมความขัดแย้ง อุปสรรค หรือความสัมพันธ์หลักที่น่าติดตาม',
+        hook_blurb: 'เขียนเป็นคำโปรยชวนอ่านที่เข้มข้นและชัดเจน (ความยาว 3–4 ย่อหน้าเต็ม ประมาณ 180–350 คำ) ชูจุดขาย เคมีของตัวละครหลัก อารมณ์ของเรื่อง และปมที่ทำให้คนอ่านอยากกดอ่านตอนแรกทันที ห้ามเขียนสั้นกุดจนจับใจความไม่ได้',
+        plot_overview: 'เขียนสรุปภาพรวมเซ็ตติ้งของโลกในเรื่อง บทบาทตัวละครหลัก/รอง ฝ่ายต่างๆ และเป้าหมาย/ปัญหาหลักของเรื่องอย่างชัดเจนเป็นระบบ (ความยาว 3–5 ย่อหน้าเต็ม ประมาณ 200–400 คำ) เพื่อปูพื้นให้ผู้อ่านเข้าใจเรื่องทันทีตั้งแต่ต้น'
+      };
+
+      const btn = $('btnGenerateAiSynopsis');
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '✨ กำลังเรียบเรียงเรื่องย่อ...';
+
+      try {
+        const sysPrompt = [
+          'คุณคือนักเขียนคำโปรยและบรรณาธิการนิยายภาษาไทยมืออาชีพ ที่เก่งในการเล่าเรื่องย่อให้น่าติดตาม เข้าใจง่าย และชัดเจน',
+          'กฎสำคัญมาก: ห้ามเขียนกระชับเกินไปจนห้วนหรืออ่านไม่รู้เรื่อง ห้ามสรุปแค่ 2-3 บรรทัด ต้องอธิบายบริบท ตัวละคร จุดตั้งต้นของเรื่อง และปมสำคัญให้คนอ่านเข้าใจชัดเจน',
+          'รูปแบบผลลัพธ์: ตอบเฉพาะข้อความเรื่องย่อเป็นย่อหน้าภาษาไทยที่สละสลวย 3–5 ย่อหน้าเท่านั้น ไม่ต้องเกริ่นนำ (เช่น "ได้เลยครับ/นี่คือเรื่องย่อ") ไม่ต้องใส่หัวข้อตัวเลขแข็งๆ และห้ามสปอยล์ตอนจบหรือจุดหักมุมท้ายเรื่อง'
+        ].join('\n\n');
+
+        const prompt = `กรุณาเขียน "เรื่องย่อ / คำโปรย" ภาษาไทยสำหรับนิยายเรื่องนี้\nแนวทางการเขียน: ${styleInstructions[style] || styleInstructions.detailed_story}\n\nข้อมูลและเนื้อหาอ้างอิงของนิยาย:\n${ctx}`;
+        const reply = await callGeminiWithSanitizedRetry(prompt, sysPrompt, () => ({
+          sysPrompt: `${sysPrompt}\n\nบริบทงานบรรณาธิการแปลวรรณกรรม: เรียบเรียงเรื่องย่อตามเนื้อหาต้นฉบับจริงให้อ่านเข้าใจครบถ้วนชัดเจน`,
+          prompt: `กรุณาเขียนเรื่องย่อ/คำโปรยภาษาไทยแบบละเอียดชัดเจน (3–5 ย่อหน้า) จากข้อมูลต่อไปนี้:\n\n${obfuscateTriggerTokensZeroLoss(buildSynopsisGenerationContext(novel, chapters, 24000))}`
+        }));
+
+        const cleaned = String(reply || '').trim().slice(0, 10000);
+        $('inputAiSynopsisDraft').value = cleaned;
+        aiSynopsisDraftCache.set(novel.id || '__draft__', cleaned);
+        showToast('✨ AI เขียนเรื่องย่อเสร็จแล้ว! ลองอ่านตรวจและกดเลือกใช้ได้เลย');
+      } catch (err) {
+        console.error('generateAiSynopsis failed:', err);
+        showToast('ให้ AI เขียนเรื่องย่อไม่สำเร็จ: ' + (err?.message || 'เกิดข้อผิดพลาด'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+      }
+    }
+
+    async function applyAiSynopsisToNovel() {
+      const draft = $('inputAiSynopsisDraft').value.trim().slice(0, 10000);
+      if (!draft) {
+        showToast('ยังไม่มีข้อความเรื่องย่อสำหรับนำไปใช้ครับ');
+        return;
+      }
+
+      const { fromModal, savedNovel } = getSynopsisTargetContextInfo();
+      if (fromModal) {
+        $('inputNovelTranslatedSynopsis').value = draft;
+        $('aiSynopsisModalBackdrop').classList.add('hidden');
+        showToast('✨ ใส่เรื่องย่อลงในช่อง "เรื่องย่อฉบับแปล" แล้ว (อย่าลืมกด บันทึกเรื่อง)');
+        return;
+      }
+
+      if (!state.user || !savedNovel) return;
+      const btn = $('btnApplyAiSynopsis');
+      btn.disabled = true;
+      try {
+        await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', savedNovel.id), {
+          translatedSynopsis: draft,
+          updatedAt: Date.now()
+        });
+        savedNovel.translatedSynopsis = draft;
+        aiSynopsisDraftCache.set(savedNovel.id, draft);
+        $('aiSynopsisModalBackdrop').classList.add('hidden');
+        renderDetailHeader();
+        renderLibrary();
+        showToast('✅ นำเรื่องย่อที่ AI เขียนไปใช้กับเรื่องนี้แล้ว');
+      } catch (err) {
+        console.error('applyAiSynopsisToNovel failed:', err);
+        showToast('บันทึกเรื่องย่อไม่สำเร็จ: ' + (err?.code || err?.message));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
     // FEATURE 3: ASK AI ABOUT THIS NOVEL (ANTI-SPOILER CHAT)
     // ---------------------------------------------------------------------
     function openNovelChatModal(preferredMaxOrder = null) {
@@ -8767,6 +9017,25 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
     $('btnGenerateRecap').addEventListener('click', generateStoryRecap);
     $('btnSaveStoryRecap').addEventListener('click', saveStoryRecap);
+
+    // Wire Feature 2B Listeners (AI Synopsis / Blurb)
+    $('btnOpenAiSynopsisModal').addEventListener('click', openAiSynopsisModal);
+    $('btnModalOpenAiSynopsis').addEventListener('click', openAiSynopsisModal);
+    $('btnCloseAiSynopsisModal').addEventListener('click', () => $('aiSynopsisModalBackdrop').classList.add('hidden'));
+    $('btnCancelAiSynopsis').addEventListener('click', () => $('aiSynopsisModalBackdrop').classList.add('hidden'));
+    $('aiSynopsisModalBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('aiSynopsisModalBackdrop')) $('aiSynopsisModalBackdrop').classList.add('hidden');
+    });
+    $('btnGenerateAiSynopsis').addEventListener('click', generateAiSynopsis);
+    $('btnCopyAiSynopsis').addEventListener('click', () => {
+      const txt = $('inputAiSynopsisDraft').value.trim();
+      if (!txt) {
+        showToast('ยังไม่มีข้อความให้คัดลอกครับ');
+        return;
+      }
+      copyTextToClipboard(txt, 'คัดลอกเรื่องย่อแล้ว');
+    });
+    $('btnApplyAiSynopsis').addEventListener('click', applyAiSynopsisToNovel);
 
     // Wire Feature 3 Listeners
     $('btnOpenNovelChat').addEventListener('click', () => openNovelChatModal());
