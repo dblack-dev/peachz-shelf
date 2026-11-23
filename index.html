@@ -2243,6 +2243,9 @@
         );
         const snap = await getDocs(q);
         state.chapters = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        if (state.chapters.some((c, idx) => Number(c.order) !== idx + 1)) {
+          await renumberChaptersSequential({ silent: true, novelId });
+        }
       } catch (err) {
         console.error('loadChapters failed:', err);
         showToast('โหลดสารบัญตอนไม่สำเร็จ');
@@ -3749,15 +3752,35 @@
       try {
         await deleteDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id));
         state.chapters = state.chapters.filter((c) => c.id !== ch.id);
-        await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id), {
+
+        const bm = getNovelBookmark(novel.id);
+        if (bm && bm.chapterId === ch.id && state.shelfOrg?.bookmarks) {
+          delete state.shelfOrg.bookmarks[novel.id];
+          await saveShelfOrg(true);
+        }
+
+        await renumberChaptersSequential({ silent: true, novelId: novel.id });
+
+        const novelPatch = {
           chapterCount: state.chapters.length,
           updatedAt: Date.now()
-        });
+        };
+        if (novel.lastChapterId === ch.id) {
+          novelPatch.lastChapterId = '';
+          novelPatch.lastChapterTitle = '';
+          novelPatch.lastChapterOrder = 0;
+          novelPatch.lastScrollRatio = 0;
+          novel.lastChapterId = '';
+          novel.lastChapterTitle = '';
+          novel.lastChapterOrder = 0;
+          novel.lastScrollRatio = 0;
+        }
+        await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id), novelPatch);
         novel.chapterCount = state.chapters.length;
         renderChaptersList();
         renderDetailHeader();
         renderLibrary();
-        showToast('ลบตอนแล้ว');
+        showToast('ลบตอนและจัดเลขลำดับใหม่แล้ว');
       } catch (err) {
         showToast('ลบตอนไม่สำเร็จ');
       }
@@ -4315,25 +4338,71 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
     }
 
-    async function renumberChaptersSequential() {
-      const novel = getActiveNovel();
+    async function renumberChaptersSequential(opts = {}) {
+      const silent = Boolean(opts && opts.silent === true);
+      const targetNovelId = (opts && typeof opts.novelId === 'string' && opts.novelId) || state.activeNovelId;
+      const novel = state.novels.find((n) => n.id === targetNovelId) || null;
       if (!state.user || !novel || state.chapters.length === 0) return;
+
+      state.chapters.sort((a, b) => {
+        const diff = Number(a.order || 0) - Number(b.order || 0);
+        if (diff !== 0) return diff;
+        return Number(a.createdAt || 0) - Number(b.createdAt || 0);
+      });
+
+      const dirty = [];
+      let lastChapterNewOrder = null;
+      state.chapters.forEach((ch, idx) => {
+        const newOrder = idx + 1;
+        if (Number(ch.order) !== newOrder) {
+          ch.order = newOrder;
+          dirty.push({ ch, newOrder });
+        }
+        if (novel.lastChapterId && novel.lastChapterId === ch.id) {
+          lastChapterNewOrder = newOrder;
+        }
+      });
+
       const now = Date.now();
       try {
-        for (let i = 0; i < state.chapters.length; i += 400) {
+        for (let i = 0; i < dirty.length; i += 400) {
           const batch = writeBatch(db);
-          state.chapters.slice(i, i + 400).forEach((ch, offset) => {
-            const newOrder = i + offset + 1;
-            ch.order = newOrder;
-            batch.update(doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id), { order: newOrder, updatedAt: now });
+          dirty.slice(i, i + 400).forEach(({ ch, newOrder }) => {
+            batch.update(doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', ch.id), {
+              order: newOrder,
+              updatedAt: now
+            });
           });
           await batch.commit();
         }
-        renderChaptersList();
-        showToast('จัดเลขลำดับตอนเป็น 1..' + state.chapters.length + ' เรียบร้อยแล้ว');
+
+        const bm = getNovelBookmark(novel.id);
+        if (bm) {
+          const bmCh = state.chapters.find((c) => c.id === bm.chapterId);
+          if (bmCh && Number(bm.chapterOrder) !== Number(bmCh.order)) {
+            bm.chapterOrder = Number(bmCh.order);
+            await saveShelfOrg(true);
+          }
+        }
+
+        if (lastChapterNewOrder !== null && Number(novel.lastChapterOrder) !== lastChapterNewOrder) {
+          novel.lastChapterOrder = lastChapterNewOrder;
+          await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id), {
+            lastChapterOrder: lastChapterNewOrder,
+            updatedAt: now
+          });
+        }
+
+        if (state.activeNovelId === novel.id) {
+          renderChaptersList();
+          renderDetailHeader();
+        }
+        if (!silent) {
+          showToast('จัดเลขลำดับตอนเป็น 1..' + state.chapters.length + ' เรียบร้อยแล้ว');
+        }
       } catch (err) {
         console.error('renumberChaptersSequential failed:', err);
-        showToast('จัดเลขตอนไม่สำเร็จ');
+        if (!silent) showToast('จัดเลขตอนไม่สำเร็จ');
       }
     }
 
