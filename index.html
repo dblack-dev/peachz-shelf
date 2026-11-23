@@ -275,7 +275,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div class="relative flex-1 max-w-md">
             <svg class="w-4 h-4 text-app-sub absolute left-3.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input id="librarySearchInput" type="text" placeholder="ค้นหาชื่อเรื่อง, ผู้แต่ง, แท็ก..."
+            <input id="librarySearchInput" type="text" placeholder="ค้นหาชื่อเรื่อง, ผู้แต่ง, แท็ก, ตัวละคร..."
               class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-app-surface border border-app text-sm text-app-main placeholder:text-app-sub focus:outline-none focus:ring-2 focus:ring-rose-400" />
           </div>
           <div id="filterTabs" class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
@@ -318,6 +318,19 @@
             class="px-3 py-1 rounded-xl bg-app-accent text-white text-xs font-semibold transition">
             เสร็จสิ้น
           </button>
+        </div>
+
+        <!-- Library Tag & Character Filter Bars -->
+        <div id="libraryTagCharFilters" class="hidden p-3 rounded-2xl bg-app-surface border border-app space-y-2 shadow-sm">
+          <div id="libraryTagRow" class="hidden flex items-start gap-2">
+            <span class="text-[11px] font-semibold text-app-sub shrink-0 pt-1">🏷️ แท็กเรื่อง:</span>
+            <div id="libraryTagPills" class="flex flex-wrap gap-1.5 flex-1"></div>
+          </div>
+          <div id="libraryCharRow" class="hidden flex items-start gap-2">
+            <span class="text-[11px] font-semibold text-app-sub shrink-0 pt-1">👥 ตัวละคร:</span>
+            <div id="libraryCharPills" class="flex flex-wrap gap-1.5 flex-1"></div>
+          </div>
+          <div id="libraryActiveFilterBanner" class="hidden pt-2 border-t border-app/60 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
         </div>
       </div>
 
@@ -411,6 +424,7 @@
           </div>
 
           <div id="detailTags" class="flex flex-wrap gap-1.5"></div>
+          <div id="detailCharacters" class="space-y-1.5"></div>
           <div id="detailBookmarkBanner" class="hidden p-2.5 rounded-2xl bg-amber-500/10 border border-amber-400/40 flex flex-wrap items-center justify-between gap-2">
             <span id="detailBookmarkText" class="text-xs font-semibold text-amber-800 dark:text-amber-300 truncate"></span>
             <button id="btnJumpToBookmark" type="button"
@@ -811,8 +825,13 @@
       </div>
       <div class="p-5 space-y-3.5 overflow-y-auto text-xs sm:text-sm">
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">ชื่อเรื่อง *</label>
+          <label class="font-semibold text-app-main">ชื่อเรื่อง (ต้นฉบับ / หลัก) *</label>
           <input id="inputNovelTitle" type="text" maxlength="200" placeholder="เช่น เกิดใหม่เป็นจอมเวท..."
+            class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400" />
+        </div>
+        <div class="space-y-1">
+          <label class="font-semibold text-app-main">ชื่อเรื่องที่แสดง / ชื่อแปลไทย <span class="text-app-sub font-normal">(ไม่บังคับ)</span></label>
+          <input id="inputNovelTranslatedTitle" type="text" maxlength="200" placeholder="ถ้าใส่ ระบบจะแสดงชื่อนี้แทนชื่อต้นฉบับ (ลบออกได้)"
             class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400" />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -849,13 +868,30 @@
           </div>
         </div>
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">แท็ก (คั่นด้วยเครื่องหมายจุลภาค , )</label>
+          <label class="font-semibold text-app-main">แท็กเรื่อง <span class="text-app-sub font-normal">(คั่นด้วยเครื่องหมายจุลภาค , )</span></label>
           <input id="inputNovelTags" type="text" placeholder="แฟนตาซี, จีนโบราณ, แปลไทย"
             class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400" />
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-semibold text-amber-700 dark:text-amber-300">⭐ แท็กตัวละครหลัก <span class="text-app-sub font-normal">(คั่นด้วย , )</span></label>
+            <input id="inputNovelMainChars" type="text" placeholder="เช่น ไป๋ซินอวี่, อวี๋เฟิงเฉิง"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+          <div class="space-y-1">
+            <label class="font-semibold text-indigo-700 dark:text-indigo-300">👤 แท็กตัวละครรอง <span class="text-app-sub font-normal">(คั่นด้วย , )</span></label>
+            <input id="inputNovelSupportingChars" type="text" placeholder="เช่น เจี่ยนสุยอิง, หลี่อวี้"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+        </div>
         <div class="space-y-1">
-          <label class="font-semibold text-app-main">เรื่องย่อ / คำโปรย</label>
+          <label class="font-semibold text-app-main">เรื่องย่อ / คำโปรย (ต้นฉบับ)</label>
           <textarea id="inputNovelSynopsis" rows="3" maxlength="5000" placeholder="เรื่องย่อสั้นๆ..."
+            class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
+        </div>
+        <div class="space-y-1">
+          <label class="font-semibold text-app-main">เรื่องย่อฉบับแปล <span class="text-app-sub font-normal">(ไม่บังคับ)</span></label>
+          <textarea id="inputNovelTranslatedSynopsis" rows="3" maxlength="10000" placeholder="ถ้าใส่ ระบบจะแสดงข้อความนี้ในหน้ารายละเอียด (ลบออกได้)"
             class="w-full px-3.5 py-2.5 rounded-xl bg-app-subtle border border-app text-app-main focus:outline-none focus:ring-2 focus:ring-rose-400"></textarea>
         </div>
         <label class="inline-flex items-center gap-2 cursor-pointer select-none">
@@ -1612,6 +1648,9 @@
       activeChapterId: null,
       filter: 'all',
       search: '',
+      activeTag: '',
+      activeCharacter: '',
+      activeCharacterRole: 'all',
       libraryManualReorderMode: false,
       shelfOrg: {
         sortMode: 'updated_desc',
@@ -2304,10 +2343,307 @@
     }
 
     // =====================================================================
+    // TAG & CHARACTER HELPERS
+    // =====================================================================
+    function normalizeTagKey(str) {
+      return String(str || '').trim().toLowerCase();
+    }
+
+    function normalizeTagArray(items) {
+      if (!Array.isArray(items)) return [];
+      const out = [];
+      const seen = new Set();
+      for (const item of items) {
+        const clean = String(item || '').trim().slice(0, 120);
+        if (!clean) continue;
+        const key = clean.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(clean);
+        if (out.length >= 20) break;
+      }
+      return out;
+    }
+
+    function parseTagListInput(rawStr) {
+      return normalizeTagArray(String(rawStr || '').split(/[,，、]/));
+    }
+
+    function getCharacterRoleInNovel(novel, charName) {
+      const key = normalizeTagKey(charName);
+      if (!key || !novel) return null;
+      const inMain = Array.isArray(novel.mainCharacters) && novel.mainCharacters.some((c) => normalizeTagKey(c) === key);
+      const inSupp = Array.isArray(novel.supportingCharacters) && novel.supportingCharacters.some((c) => normalizeTagKey(c) === key);
+      if (inMain && inSupp) return 'both';
+      if (inMain) return 'main';
+      if (inSupp) return 'supporting';
+      return null;
+    }
+
+    function selectTagFilter(tagName) {
+      const clean = String(tagName || '').trim();
+      if (!clean) return;
+      const isSame = state.activeTag && normalizeTagKey(state.activeTag) === normalizeTagKey(clean);
+      const onLibrary = !$('viewLibrary').classList.contains('hidden');
+      state.activeTag = (onLibrary && isSame) ? '' : clean;
+      showView('library');
+      renderLibrary();
+      if (state.activeTag) $('libraryTagCharFilters')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function selectCharacterFilter(charName, role = 'all') {
+      const clean = String(charName || '').trim();
+      if (!clean) return;
+      const normalizedRole = ['all', 'main', 'supporting'].includes(role) ? role : 'all';
+      const isSameChar = state.activeCharacter && normalizeTagKey(state.activeCharacter) === normalizeTagKey(clean);
+      const isSameRole = state.activeCharacterRole === normalizedRole;
+      const onLibrary = !$('viewLibrary').classList.contains('hidden');
+      if (onLibrary && isSameChar && isSameRole) {
+        state.activeCharacter = '';
+        state.activeCharacterRole = 'all';
+      } else {
+        state.activeCharacter = clean;
+        state.activeCharacterRole = normalizedRole;
+      }
+      showView('library');
+      renderLibrary();
+      if (state.activeCharacter) $('libraryTagCharFilters')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function clearTagCharFilters() {
+      state.activeTag = '';
+      state.activeCharacter = '';
+      state.activeCharacterRole = 'all';
+      renderLibrary();
+    }
+
+    function makeCharacterRoleBadgeHtml(charName, role) {
+      if (role === 'both') {
+        return `<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/15 to-indigo-500/15 border border-amber-400/40 text-[10px] font-bold text-amber-800 dark:text-amber-200">⭐👤 ${escapeHtml(charName)} • ตัวหลัก &amp; ตัวรองในเรื่องนี้</div>`;
+      }
+      if (role === 'main') {
+        return `<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-400/40 text-[10px] font-bold text-amber-800 dark:text-amber-300">⭐ ${escapeHtml(charName)} • ตัวละครหลักในเรื่องนี้</div>`;
+      }
+      if (role === 'supporting') {
+        return `<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-500/15 border border-indigo-400/40 text-[10px] font-bold text-indigo-800 dark:text-indigo-300">👤 ${escapeHtml(charName)} • ตัวละครรองในเรื่องนี้</div>`;
+      }
+      return '';
+    }
+
+    function renderLibraryTagCharBars() {
+      const wrap = $('libraryTagCharFilters');
+      const tagRow = $('libraryTagRow');
+      const tagPills = $('libraryTagPills');
+      const charRow = $('libraryCharRow');
+      const charPills = $('libraryCharPills');
+      const banner = $('libraryActiveFilterBanner');
+      if (!wrap || !tagRow || !tagPills || !charRow || !charPills || !banner) return;
+
+      const tagMap = new Map();
+      const charMap = new Map();
+
+      for (const n of state.novels) {
+        if (Array.isArray(n.tags)) {
+          for (const raw of n.tags) {
+            const label = String(raw || '').trim();
+            const key = normalizeTagKey(label);
+            if (!key) continue;
+            const prev = tagMap.get(key) || { label, novelIds: new Set() };
+            prev.novelIds.add(n.id);
+            tagMap.set(key, prev);
+          }
+        }
+        if (Array.isArray(n.mainCharacters)) {
+          for (const raw of n.mainCharacters) {
+            const label = String(raw || '').trim();
+            const key = normalizeTagKey(label);
+            if (!key) continue;
+            const prev = charMap.get(key) || { label, mainIds: new Set(), suppIds: new Set() };
+            prev.mainIds.add(n.id);
+            charMap.set(key, prev);
+          }
+        }
+        if (Array.isArray(n.supportingCharacters)) {
+          for (const raw of n.supportingCharacters) {
+            const label = String(raw || '').trim();
+            const key = normalizeTagKey(label);
+            if (!key) continue;
+            const prev = charMap.get(key) || { label, mainIds: new Set(), suppIds: new Set() };
+            prev.suppIds.add(n.id);
+            charMap.set(key, prev);
+          }
+        }
+      }
+
+      const tagEntries = Array.from(tagMap.values()).sort((a, b) => {
+        const diff = b.novelIds.size - a.novelIds.size;
+        return diff !== 0 ? diff : a.label.localeCompare(b.label, 'th');
+      });
+      const charEntries = Array.from(charMap.values())
+        .map((c) => ({
+          ...c,
+          totalNovels: new Set([...c.mainIds, ...c.suppIds]).size
+        }))
+        .sort((a, b) => {
+          const diff = b.totalNovels - a.totalNovels;
+          return diff !== 0 ? diff : a.label.localeCompare(b.label, 'th');
+        });
+
+      const hasAnyFilter = Boolean(state.activeTag || state.activeCharacter);
+      if (tagEntries.length === 0 && charEntries.length === 0 && !hasAnyFilter) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+
+      tagPills.innerHTML = '';
+      if (tagEntries.length > 0) {
+        tagRow.classList.remove('hidden');
+        const activeTagKey = normalizeTagKey(state.activeTag);
+        for (const entry of tagEntries) {
+          const isActive = Boolean(activeTagKey && normalizeTagKey(entry.label) === activeTagKey);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition ${
+            isActive
+              ? 'bg-app-accent text-white border-transparent shadow-sm'
+              : 'bg-app-subtle border-app text-app-sub hover:text-app-main'
+          }`;
+          btn.textContent = `#${entry.label} (${entry.novelIds.size})`;
+          btn.addEventListener('click', () => selectTagFilter(entry.label));
+          tagPills.appendChild(btn);
+        }
+      } else {
+        tagRow.classList.add('hidden');
+      }
+
+      charPills.innerHTML = '';
+      if (charEntries.length > 0) {
+        charRow.classList.remove('hidden');
+        const activeCharKey = normalizeTagKey(state.activeCharacter);
+        for (const entry of charEntries) {
+          const isActive = Boolean(activeCharKey && normalizeTagKey(entry.label) === activeCharKey);
+          const mCount = entry.mainIds.size;
+          const sCount = entry.suppIds.size;
+          let badgeText = '';
+          let inactiveCls = '';
+          if (mCount > 0 && sCount > 0) {
+            badgeText = `⭐👤 ${entry.label} (หลัก ${mCount} · รอง ${sCount})`;
+            inactiveCls = 'bg-amber-500/10 border-amber-400/35 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20';
+          } else if (mCount > 0) {
+            badgeText = `⭐ ${entry.label} (${mCount})`;
+            inactiveCls = 'bg-amber-500/12 border-amber-400/35 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20';
+          } else {
+            badgeText = `👤 ${entry.label} (${sCount})`;
+            inactiveCls = 'bg-indigo-500/10 border-indigo-400/35 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-500/20';
+          }
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition ${
+            isActive
+              ? 'bg-amber-500 text-white border-transparent shadow-sm'
+              : inactiveCls
+          }`;
+          btn.textContent = badgeText;
+          btn.title = `กรองเรื่องที่มี "${entry.label}"`;
+          btn.addEventListener('click', () => selectCharacterFilter(entry.label, 'all'));
+          charPills.appendChild(btn);
+        }
+      } else {
+        charRow.classList.add('hidden');
+      }
+
+      banner.innerHTML = '';
+      if (!hasAnyFilter) {
+        banner.classList.add('hidden');
+        return;
+      }
+      banner.classList.remove('hidden');
+
+      const leftWrap = document.createElement('div');
+      leftWrap.className = 'flex flex-wrap items-center gap-2';
+
+      if (state.activeTag) {
+        const tagBtn = document.createElement('button');
+        tagBtn.type = 'button';
+        tagBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-app-accent-soft text-app-accent font-semibold border border-app';
+        tagBtn.textContent = `🏷️ แท็ก: #${state.activeTag} ✕`;
+        tagBtn.title = 'คลิกเพื่อยกเลิกการกรองแท็กนี้';
+        tagBtn.addEventListener('click', () => {
+          state.activeTag = '';
+          renderLibrary();
+        });
+        leftWrap.appendChild(tagBtn);
+      }
+
+      if (state.activeCharacter) {
+        let allCount = 0;
+        let mainCount = 0;
+        let suppCount = 0;
+        for (const n of state.novels) {
+          const r = getCharacterRoleInNovel(n, state.activeCharacter);
+          if (!r) continue;
+          allCount++;
+          if (r === 'main' || r === 'both') mainCount++;
+          if (r === 'supporting' || r === 'both') suppCount++;
+        }
+
+        const charBtn = document.createElement('button');
+        charBtn.type = 'button';
+        charBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold border border-amber-400/40';
+        charBtn.textContent = `👥 ตัวละคร: ${state.activeCharacter} ✕`;
+        charBtn.title = 'คลิกเพื่อยกเลิกการกรองตัวละครนี้';
+        charBtn.addEventListener('click', () => {
+          state.activeCharacter = '';
+          state.activeCharacterRole = 'all';
+          renderLibrary();
+        });
+        leftWrap.appendChild(charBtn);
+
+        const roleGroup = document.createElement('div');
+        roleGroup.className = 'inline-flex flex-wrap items-center gap-1';
+        const roleOpts = [
+          { key: 'all', label: `ทุกบทบาท (${allCount})` },
+          { key: 'main', label: `⭐ ตัวหลัก (${mainCount})` },
+          { key: 'supporting', label: `👤 ตัวรอง (${suppCount})` }
+        ];
+        for (const opt of roleOpts) {
+          const rBtn = document.createElement('button');
+          rBtn.type = 'button';
+          const isRoleActive = state.activeCharacterRole === opt.key;
+          rBtn.className = `px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+            isRoleActive
+              ? 'bg-app-accent text-white border-transparent shadow-sm'
+              : 'bg-app-subtle border-app text-app-sub hover:text-app-main'
+          }`;
+          rBtn.textContent = opt.label;
+          rBtn.addEventListener('click', () => {
+            state.activeCharacterRole = opt.key;
+            renderLibrary();
+          });
+          roleGroup.appendChild(rBtn);
+        }
+        leftWrap.appendChild(roleGroup);
+      }
+
+      banner.appendChild(leftWrap);
+
+      if (state.activeTag && state.activeCharacter) {
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-[11px] font-semibold hover:bg-rose-500/20 transition';
+        clearBtn.textContent = '✕ ล้างทั้งหมด';
+        clearBtn.addEventListener('click', clearTagCharFilters);
+        banner.appendChild(clearBtn);
+      }
+    }
+
+    // =====================================================================
     // RENDER LIBRARY
     // =====================================================================
     function renderLibrary() {
       syncShelfOrgControls();
+      renderLibraryTagCharBars();
 
       // Filter buttons
       document.querySelectorAll('[data-filter]').forEach((btn) => {
@@ -2345,11 +2681,29 @@
       }
 
       const keyword = state.search.trim().toLowerCase();
+      const activeTagKey = normalizeTagKey(state.activeTag);
       const filtered = getSortedLibraryNovels(state.novels.filter((n) => {
         if (state.filter === 'fav' && !n.isFavorite) return false;
         if (['reading', 'completed', 'plan'].includes(state.filter) && n.status !== state.filter) return false;
+        if (activeTagKey) {
+          const hasTag = Array.isArray(n.tags) && n.tags.some((t) => normalizeTagKey(t) === activeTagKey);
+          if (!hasTag) return false;
+        }
+        if (state.activeCharacter) {
+          const charRole = getCharacterRoleInNovel(n, state.activeCharacter);
+          if (!charRole) return false;
+          if (state.activeCharacterRole === 'main' && charRole !== 'main' && charRole !== 'both') return false;
+          if (state.activeCharacterRole === 'supporting' && charRole !== 'supporting' && charRole !== 'both') return false;
+        }
         if (keyword) {
-          const hay = [n.title, n.translatedTitle, n.author, ...(Array.isArray(n.tags) ? n.tags : [])].join(' ').toLowerCase();
+          const hay = [
+            n.title,
+            n.translatedTitle,
+            n.author,
+            ...(Array.isArray(n.tags) ? n.tags : []),
+            ...(Array.isArray(n.mainCharacters) ? n.mainCharacters : []),
+            ...(Array.isArray(n.supportingCharacters) ? n.supportingCharacters : [])
+          ].join(' ').toLowerCase();
           if (!hay.includes(keyword)) return false;
         }
         return true;
@@ -2374,6 +2728,7 @@
       for (const novel of filtered) {
         const pinned = isNovelPinned(novel.id);
         const bm = getNovelBookmark(novel.id);
+        const activeCharRole = state.activeCharacter ? getCharacterRoleInNovel(novel, state.activeCharacter) : null;
         const card = document.createElement('div');
         card.className = `bg-app-surface border rounded-3xl p-4 shadow-sm hover:shadow-md transition flex flex-col gap-3 cursor-pointer group ${
           pinned ? 'border-amber-400/80 ring-1 ring-amber-400/35' : 'border-app'
@@ -2383,9 +2738,23 @@
           ? `<img src="${escapeHtml(novel.coverUrl)}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" />`
           : `<span>${escapeHtml((novel.title || 'N').trim().charAt(0).toUpperCase())}</span>`;
 
-        const tagsHtml = (Array.isArray(novel.tags) ? novel.tags.slice(0, 3) : [])
-          .map((t) => `<span class="px-2 py-0.5 rounded-lg bg-app-subtle text-[10px] text-app-sub">${escapeHtml(t)}</span>`)
+        const tagsHtml = (Array.isArray(novel.tags) ? novel.tags.slice(0, 4) : [])
+          .map((t) => {
+            const isMatch = activeTagKey && normalizeTagKey(t) === activeTagKey;
+            return `<button type="button" data-tag="${escapeHtml(t)}" class="btn-card-tag px-2 py-0.5 rounded-lg text-[10px] font-semibold transition ${
+              isMatch ? 'bg-app-accent text-white shadow-sm' : 'bg-app-subtle text-app-sub hover:text-app-main'
+            }" title="กดเพื่อรวมเรื่องที่มีแท็ก #${escapeHtml(t)}">#${escapeHtml(t)}</button>`;
+          })
           .join('');
+
+        const mainChars = Array.isArray(novel.mainCharacters) ? novel.mainCharacters : [];
+        const suppChars = Array.isArray(novel.supportingCharacters) ? novel.supportingCharacters : [];
+        const charChips = [
+          ...mainChars.slice(0, 3).map((c) => `<button type="button" data-char="${escapeHtml(c)}" class="btn-card-char px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-400/30 text-[10px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition" title="ตัวละครหลัก — กดเพื่อดูเรื่องทั้งหมดที่มีตัวละครนี้">⭐ ${escapeHtml(c)}</button>`),
+          ...suppChars.slice(0, 2).map((c) => `<button type="button" data-char="${escapeHtml(c)}" class="btn-card-char px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-400/30 text-[10px] font-semibold text-indigo-800 dark:text-indigo-300 hover:bg-indigo-500/20 transition" title="ตัวละครรอง — กดเพื่อดูเรื่องทั้งหมดที่มีตัวละครนี้">👤 ${escapeHtml(c)}</button>`)
+        ].join('');
+        const extraCharCount = Math.max(0, mainChars.length - 3) + Math.max(0, suppChars.length - 2);
+        const charsHtml = charChips + (extraCharCount > 0 ? `<span class="px-1.5 py-0.5 text-[10px] text-app-sub">+${extraCharCount}</span>` : '');
 
         const groupFiltered = filtered.filter((item) => isNovelPinned(item.id) === pinned);
         const gIdx = groupFiltered.findIndex((item) => item.id === novel.id);
@@ -2414,7 +2783,10 @@
               <div class="space-y-1">
                 <div class="flex items-start justify-between gap-1">
                   <div class="min-w-0 flex-1 space-y-0.5">
-                    ${pinned ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">📌 ปักหมุด</span>' : ''}
+                    <div class="flex flex-wrap gap-1">
+                      ${pinned ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">📌 ปักหมุด</span>' : ''}
+                      ${activeCharRole ? makeCharacterRoleBadgeHtml(state.activeCharacter, activeCharRole) : ''}
+                    </div>
                     <h3 class="font-bold text-sm sm:text-base text-app-main line-clamp-2 group-hover:text-app-accent transition">${escapeHtml(novel.translatedTitle || novel.title)}</h3>
                   </div>
                   <div class="flex items-center gap-0.5 shrink-0">
@@ -2426,7 +2798,8 @@
                 </div>
                 ${novel.translatedTitle && novel.translatedTitle !== novel.title ? `<div class="text-[11px] text-app-sub truncate">${escapeHtml(novel.title)}</div>` : ''}
                 <div class="text-xs text-app-sub truncate">${escapeHtml(novel.author || 'ไม่ระบุผู้แต่ง')}</div>
-                <div class="flex flex-wrap gap-1">${tagsHtml}</div>
+                ${tagsHtml ? `<div class="flex flex-wrap gap-1">${tagsHtml}</div>` : ''}
+                ${charsHtml ? `<div class="flex flex-wrap gap-1">${charsHtml}</div>` : ''}
               </div>
               <div class="space-y-1.5">
                 ${bookmarkHtml}
@@ -2447,6 +2820,18 @@
         card.querySelector('.btn-card-fav').addEventListener('click', async (e) => {
           e.stopPropagation();
           await toggleFavoriteNovel(novel);
+        });
+        card.querySelectorAll('.btn-card-tag').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectTagFilter(btn.dataset.tag || '');
+          });
+        });
+        card.querySelectorAll('.btn-card-char').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectCharacterFilter(btn.dataset.char || '', 'all');
+          });
         });
         const bmBtn = card.querySelector('.btn-card-bookmark');
         if (bmBtn && bm) {
@@ -2559,9 +2944,57 @@
       $('detailNotesInput').value = novel.notes || '';
 
       const tagsEl = $('detailTags');
-      tagsEl.innerHTML = (Array.isArray(novel.tags) ? novel.tags : [])
-        .map((t) => `<span class="px-2.5 py-0.5 rounded-full bg-app-subtle border border-app text-[11px] text-app-sub">#${escapeHtml(t)}</span>`)
-        .join('');
+      tagsEl.innerHTML = '';
+      (Array.isArray(novel.tags) ? novel.tags : []).forEach((t) => {
+        const clean = String(t || '').trim();
+        if (!clean) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-2.5 py-0.5 rounded-full bg-app-subtle border border-app text-[11px] font-medium text-app-sub hover:text-app-main hover:border-rose-400/50 transition';
+        btn.textContent = `#${clean}`;
+        btn.title = `กดเพื่อรวมเรื่องที่มีแท็ก #${clean}`;
+        btn.addEventListener('click', () => selectTagFilter(clean));
+        tagsEl.appendChild(btn);
+      });
+
+      const charsEl = $('detailCharacters');
+      if (charsEl) {
+        charsEl.innerHTML = '';
+        const mainChars = Array.isArray(novel.mainCharacters) ? novel.mainCharacters.filter((c) => String(c || '').trim()) : [];
+        const suppChars = Array.isArray(novel.supportingCharacters) ? novel.supportingCharacters.filter((c) => String(c || '').trim()) : [];
+        const appendCharRow = (label, list, pillCls, icon) => {
+          if (!list.length) return;
+          const row = document.createElement('div');
+          row.className = 'flex flex-wrap items-center gap-1.5';
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'text-[11px] font-semibold text-app-sub';
+          titleSpan.textContent = label;
+          row.appendChild(titleSpan);
+          list.forEach((raw) => {
+            const c = String(raw).trim();
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = pillCls;
+            btn.textContent = `${icon} ${c}`;
+            btn.title = `กดเพื่อรวมเรื่องที่มี "${c}"`;
+            btn.addEventListener('click', () => selectCharacterFilter(c, 'all'));
+            row.appendChild(btn);
+          });
+          charsEl.appendChild(row);
+        };
+        appendCharRow(
+          'ตัวละครหลัก:',
+          mainChars,
+          'px-2.5 py-0.5 rounded-full bg-amber-500/12 border border-amber-400/35 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition',
+          '⭐'
+        );
+        appendCharRow(
+          'ตัวละครรอง:',
+          suppChars,
+          'px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-400/35 text-[11px] font-semibold text-indigo-800 dark:text-indigo-300 hover:bg-indigo-500/20 transition',
+          '👤'
+        );
+      }
 
       const continueBtn = $('btnDetailReadContinue');
       if (novel.lastChapterId && state.chapters.some((c) => c.id === novel.lastChapterId)) {
@@ -3001,11 +3434,15 @@
       state.editingNovelId = novelToEdit ? novelToEdit.id : null;
       $('novelModalTitle').textContent = novelToEdit ? 'แก้ไขข้อมูลนิยาย' : 'เพิ่มเรื่องใหม่';
       $('inputNovelTitle').value = novelToEdit?.title || '';
+      $('inputNovelTranslatedTitle').value = novelToEdit?.translatedTitle || '';
       $('inputNovelAuthor').value = novelToEdit?.author || '';
       $('inputNovelStatus').value = novelToEdit?.status || 'reading';
       $('inputNovelCover').value = novelToEdit?.coverUrl || '';
       $('inputNovelTags').value = Array.isArray(novelToEdit?.tags) ? novelToEdit.tags.join(', ') : '';
+      $('inputNovelMainChars').value = Array.isArray(novelToEdit?.mainCharacters) ? novelToEdit.mainCharacters.join(', ') : '';
+      $('inputNovelSupportingChars').value = Array.isArray(novelToEdit?.supportingCharacters) ? novelToEdit.supportingCharacters.join(', ') : '';
       $('inputNovelSynopsis').value = novelToEdit?.synopsis || '';
+      $('inputNovelTranslatedSynopsis').value = novelToEdit?.translatedSynopsis || '';
       $('inputNovelFav').checked = Boolean(novelToEdit?.isFavorite);
       updateCoverPreview();
       $('novelModalBackdrop').classList.remove('hidden');
@@ -3024,54 +3461,49 @@
 
     async function saveNovelFromModal() {
       if (!state.user) return;
-      const title = $('inputNovelTitle').value.trim();
+      const title = $('inputNovelTitle').value.trim().slice(0, 200);
       if (!title) {
         showToast('กรุณากรอกชื่อเรื่องครับ');
         return;
       }
-      const tags = $('inputNovelTags').value
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 20);
+      const tags = parseTagListInput($('inputNovelTags').value);
+      const mainCharacters = parseTagListInput($('inputNovelMainChars').value);
+      const supportingCharacters = parseTagListInput($('inputNovelSupportingChars').value);
 
       const now = Date.now();
+      const baseFields = {
+        title,
+        translatedTitle: $('inputNovelTranslatedTitle').value.trim().slice(0, 200),
+        author: $('inputNovelAuthor').value.trim().slice(0, 120),
+        status: $('inputNovelStatus').value,
+        coverUrl: $('inputNovelCover').value.trim().slice(0, 200000),
+        tags,
+        mainCharacters,
+        supportingCharacters,
+        synopsis: $('inputNovelSynopsis').value.trim().slice(0, 5000),
+        translatedSynopsis: $('inputNovelTranslatedSynopsis').value.trim().slice(0, 10000),
+        isFavorite: $('inputNovelFav').checked,
+        updatedAt: now
+      };
       const btn = $('btnSaveNovelModal');
       btn.disabled = true;
 
       try {
         if (state.editingNovelId) {
-          const payload = {
-            title,
-            author: $('inputNovelAuthor').value.trim().slice(0, 120),
-            status: $('inputNovelStatus').value,
-            coverUrl: $('inputNovelCover').value.trim().slice(0, 200000),
-            tags,
-            synopsis: $('inputNovelSynopsis').value.trim().slice(0, 5000),
-            isFavorite: $('inputNovelFav').checked,
-            updatedAt: now
-          };
-          await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', state.editingNovelId), payload);
+          await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', state.editingNovelId), baseFields);
           const target = state.novels.find((n) => n.id === state.editingNovelId);
-          if (target) Object.assign(target, payload);
+          if (target) Object.assign(target, baseFields);
           showToast('บันทึกข้อมูลเรื่องแล้ว');
         } else {
           const payload = {
-            title,
-            author: $('inputNovelAuthor').value.trim().slice(0, 120),
-            status: $('inputNovelStatus').value,
-            coverUrl: $('inputNovelCover').value.trim().slice(0, 200000),
-            tags,
-            synopsis: $('inputNovelSynopsis').value.trim().slice(0, 5000),
-            isFavorite: $('inputNovelFav').checked,
+            ...baseFields,
             notes: '',
             chapterCount: 0,
             lastChapterId: '',
             lastChapterTitle: '',
             lastChapterOrder: 0,
             lastScrollRatio: 0,
-            createdAt: now,
-            updatedAt: now
+            createdAt: now
           };
           const ref = await addDoc(collection(db, 'users', state.user.uid, 'readerNovels'), payload);
           state.novels.unshift({ id: ref.id, ...payload });
@@ -3432,9 +3864,9 @@
       const now = Date.now();
 
       const validStatus = ['reading', 'completed', 'plan'].includes(srcNovel.status) ? srcNovel.status : 'reading';
-      const tags = Array.isArray(srcNovel.tags)
-        ? srcNovel.tags.map((t) => String(t).trim().slice(0, 120)).filter(Boolean).slice(0, 20)
-        : [];
+      const tags = normalizeTagArray(srcNovel.tags);
+      const mainCharacters = normalizeTagArray(srcNovel.mainCharacters);
+      const supportingCharacters = normalizeTagArray(srcNovel.supportingCharacters);
 
       const novelPayload = {
         title: String(srcNovel.title).trim().slice(0, 200),
@@ -3444,6 +3876,8 @@
         synopsis: String(srcNovel.synopsis || '').trim().slice(0, 5000),
         translatedSynopsis: String(srcNovel.translatedSynopsis || '').trim().slice(0, 10000),
         tags,
+        mainCharacters,
+        supportingCharacters,
         status: validStatus,
         isFavorite: Boolean(srcNovel.isFavorite),
         notes: String(srcNovel.notes || '').slice(0, 25000),
