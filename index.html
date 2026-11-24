@@ -823,11 +823,17 @@
         </article>
       </div>
 
-      <!-- Floating Back to Top -->
-      <button id="btnScrollTop" type="button" title="ขึ้นด้านบน"
-        class="hidden fixed bottom-6 right-5 z-30 w-10 h-10 rounded-full bg-app-accent text-white shadow-lg flex items-center justify-center text-sm font-bold hover:opacity-95 transition">
-        ↑
-      </button>
+      <!-- Floating Scroll Navigation (Top & Bottom) -->
+      <div id="readerScrollNavGroup" class="hidden fixed bottom-6 right-5 z-30 flex items-center gap-2">
+        <button id="btnScrollTop" type="button" title="ขึ้นด้านบน"
+          class="w-10 h-10 rounded-full bg-app-accent text-white shadow-lg flex items-center justify-center text-sm font-bold hover:opacity-95 active:scale-95 transition">
+          ↑
+        </button>
+        <button id="btnScrollBottom" type="button" title="ลงด้านล่าง"
+          class="w-10 h-10 rounded-full bg-app-surface border border-app text-app-main shadow-lg flex items-center justify-center text-sm font-bold hover:bg-app-subtle active:scale-95 transition">
+          ↓
+        </button>
+      </div>
     </section>
   </div>
 
@@ -2281,6 +2287,84 @@
       });
     }
 
+    let navTrail = [];
+
+    function buildNavHash(view, novelId = null, chapterId = null) {
+      if (view === 'reader' && novelId && chapterId) {
+        return `#read/${encodeURIComponent(novelId)}/${encodeURIComponent(chapterId)}`;
+      }
+      if (view === 'detail' && novelId) {
+        return `#novel/${encodeURIComponent(novelId)}`;
+      }
+      return '#library';
+    }
+
+    function syncNavHistory(view, novelId = null, chapterId = null, { replace = false } = {}) {
+      const st = {
+        peachzView: view,
+        novelId: novelId || null,
+        chapterId: chapterId || null
+      };
+      const cur = history.state;
+      if (
+        cur &&
+        cur.peachzView === st.peachzView &&
+        (cur.novelId || null) === st.novelId &&
+        (cur.chapterId || null) === st.chapterId
+      ) {
+        if (navTrail.length === 0) navTrail.push(st);
+        return;
+      }
+      const hash = buildNavHash(view, st.novelId, st.chapterId);
+      try {
+        if (replace) {
+          history.replaceState(st, '', hash);
+          navTrail = [st];
+        } else {
+          history.pushState(st, '', hash);
+          navTrail.push(st);
+          if (navTrail.length > 50) navTrail = navTrail.slice(-50);
+        }
+      } catch (err) {
+        console.warn('history sync skipped:', err);
+      }
+    }
+
+    function closeAllOpenModals() {
+      document.querySelectorAll('[id$="ModalBackdrop"], #tocDrawerBackdrop').forEach((el) => {
+        el.classList.add('hidden');
+      });
+    }
+
+    function navigateBackTo(targetView, fallbackFn) {
+      if (navTrail.length >= 2) {
+        const prev = navTrail[navTrail.length - 2];
+        const matchDetail = targetView !== 'detail' || !state.activeNovelId || prev.novelId === state.activeNovelId;
+        if (prev && prev.peachzView === targetView && matchDetail) {
+          history.back();
+          return;
+        }
+      }
+      fallbackFn();
+    }
+
+    function updateReaderScrollButtons() {
+      const group = $('readerScrollNavGroup');
+      if (!group) return;
+      if ($('viewReader').classList.contains('hidden')) {
+        group.classList.add('hidden');
+        return;
+      }
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const canScroll = maxScroll > 80;
+      group.classList.toggle('hidden', !canScroll);
+      if (!canScroll) return;
+      const topBtn = $('btnScrollTop');
+      const bottomBtn = $('btnScrollBottom');
+      if (topBtn) topBtn.classList.toggle('opacity-45', window.scrollY < 80);
+      if (bottomBtn) bottomBtn.classList.toggle('opacity-45', window.scrollY >= maxScroll - 80);
+    }
+
     function showView(viewName) {
       $('viewLibrary').classList.toggle('hidden', viewName !== 'library');
       $('viewDetail').classList.toggle('hidden', viewName !== 'detail');
@@ -2289,7 +2373,7 @@
       $('headerAiStatusBar').classList.toggle('hidden', viewName === 'reader');
       if (viewName !== 'reader') {
         $('readerSettingsPanel').classList.add('hidden');
-        $('btnScrollTop').classList.add('hidden');
+        $('readerScrollNavGroup').classList.add('hidden');
         if (typeof hideHighlightAiToolbar === 'function') hideHighlightAiToolbar();
         if (typeof stopTts === 'function') stopTts(true);
       }
@@ -2467,6 +2551,7 @@
       const onLibrary = !$('viewLibrary').classList.contains('hidden');
       state.activeTag = (onLibrary && isSame) ? '' : clean;
       showView('library');
+      if (!onLibrary) syncNavHistory('library', null, null);
       renderLibrary();
       if (state.activeTag) $('libraryTagCharFilters')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -2486,6 +2571,7 @@
         state.activeCharacterRole = normalizedRole;
       }
       showView('library');
+      if (!onLibrary) syncNavHistory('library', null, null);
       renderLibrary();
       if (state.activeCharacter) $('libraryTagCharFilters')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -2986,8 +3072,9 @@
     // =====================================================================
     // RENDER NOVEL DETAIL & CHAPTERS
     // =====================================================================
-    async function openNovelDetail(novelId) {
-      if (state.activeNovelId !== novelId) {
+    async function openNovelDetail(novelId, { fromPopstate = false } = {}) {
+      const sameNovel = state.activeNovelId === novelId;
+      if (!sameNovel) {
         state.novelChatHistory = [];
       }
       state.activeNovelId = novelId;
@@ -2996,7 +3083,13 @@
       $('novelSearchResults').classList.add('hidden');
       $('novelSearchResults').innerHTML = '';
       showView('detail');
+      if (!fromPopstate) syncNavHistory('detail', novelId, null);
       renderDetailHeader();
+      if (fromPopstate && sameNovel && state.chapters.length > 0) {
+        renderChaptersList();
+        renderDetailHeader();
+        return;
+      }
       $('chaptersList').innerHTML = '<div class="py-8 text-center text-xs text-app-sub">กำลังโหลดสารบัญ...</div>';
       $('chaptersEmpty').classList.add('hidden');
       await loadChaptersForNovel(novelId);
@@ -3343,7 +3436,7 @@
       applyReaderPrefsUI();
     }
 
-    function openReaderChapter(chapterId, restoreScroll = false, keepTtsPlaying = false) {
+    function openReaderChapter(chapterId, restoreScroll = false, keepTtsPlaying = false, { fromPopstate = false } = {}) {
       const novel = getActiveNovel();
       const idx = state.chapters.findIndex((c) => c.id === chapterId);
       if (!novel || idx === -1) {
@@ -3360,6 +3453,7 @@
       const ch = state.chapters[idx];
       state.activeChapterId = ch.id;
       showView('reader');
+      if (!fromPopstate) syncNavHistory('reader', novel.id, ch.id);
 
       if (wasTtsOpen && !keepTtsPlaying && typeof openTtsBarStatePreserve === 'function') {
         openTtsBarStatePreserve();
@@ -3396,11 +3490,13 @@
             const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
             window.scrollTo({ top: maxScroll * savedRatio, behavior: 'instant' });
             isRestoringScroll = false;
+            updateReaderScrollButtons();
           }, 80);
         });
       } else {
         window.scrollTo({ top: 0, behavior: 'instant' });
         saveReadingProgress(ch, 0);
+        requestAnimationFrame(() => updateReaderScrollButtons());
       }
     }
 
@@ -3517,7 +3613,7 @@
 
     window.addEventListener('scroll', () => {
       if ($('viewReader').classList.contains('hidden')) return;
-      $('btnScrollTop').classList.toggle('hidden', window.scrollY < 400);
+      updateReaderScrollButtons();
       if (isRestoringScroll) return;
 
       clearTimeout(scrollSaveTimer);
@@ -6121,6 +6217,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       $('appShell').classList.remove('hidden');
       renderUserHeader(user);
       showView('library');
+      syncNavHistory('library', null, null, { replace: true });
       await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadCloudShelfOrg(), loadNovels()]);
       renderLibrary();
     });
@@ -6198,11 +6295,16 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       savePrefs(true);
     });
 
+    function goLibraryFromNav() {
+      navigateBackTo('library', () => {
+        showView('library');
+        syncNavHistory('library', null, null);
+        renderLibrary();
+      });
+    }
+
     // Library Navigation & Filters
-    $('btnBrandHome').addEventListener('click', () => {
-      showView('library');
-      renderLibrary();
-    });
+    $('btnBrandHome').addEventListener('click', goLibraryFromNav);
     $('librarySearchInput').addEventListener('input', (e) => {
       state.search = e.target.value;
       renderLibrary();
@@ -6252,10 +6354,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
 
     // Detail Navigation & Actions
-    $('btnBackToLibrary').addEventListener('click', () => {
-      showView('library');
-      renderLibrary();
-    });
+    $('btnBackToLibrary').addEventListener('click', goLibraryFromNav);
     $('btnEditNovel').addEventListener('click', () => openNovelModal(getActiveNovel()));
     $('btnDeleteNovel').addEventListener('click', deleteActiveNovel);
     $('btnExportNovelEpub').addEventListener('click', exportNovelEpub);
@@ -6341,8 +6440,9 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
 
     // Reader Buttons
-    $('btnReaderBack').addEventListener('click', () => openNovelDetail(state.activeNovelId));
-    $('btnBottomToc').addEventListener('click', () => openNovelDetail(state.activeNovelId));
+    const goTocFromReader = () => navigateBackTo('detail', () => openNovelDetail(state.activeNovelId));
+    $('btnReaderBack').addEventListener('click', goTocFromReader);
+    $('btnBottomToc').addEventListener('click', goTocFromReader);
     $('btnReaderBookmarkTop').addEventListener('click', () => toggleChapterBookmark(null, true));
     $('btnReaderBookmarkBottom').addEventListener('click', () => toggleChapterBookmark(null, true));
     $('btnReaderSettingsToggle').addEventListener('click', () => $('readerSettingsPanel').classList.toggle('hidden'));
@@ -6381,6 +6481,47 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       if (e.target === $('tocDrawerBackdrop')) $('tocDrawerBackdrop').classList.add('hidden');
     });
     $('btnScrollTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    $('btnScrollBottom').addEventListener('click', () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }));
+
+    window.addEventListener('popstate', async (e) => {
+      if (!state.user) return;
+      closeAllOpenModals();
+      if (navTrail.length > 1) navTrail.pop();
+      const st = e.state;
+      if (!st || st.peachzView === 'library') {
+        showView('library');
+        renderLibrary();
+        if (navTrail.length === 0) navTrail = [{ peachzView: 'library', novelId: null, chapterId: null }];
+        return;
+      }
+      if (st.peachzView === 'detail' && st.novelId) {
+        if (!state.novels.some((n) => n.id === st.novelId)) {
+          showView('library');
+          syncNavHistory('library', null, null, { replace: true });
+          renderLibrary();
+          return;
+        }
+        await openNovelDetail(st.novelId, { fromPopstate: true });
+        return;
+      }
+      if (st.peachzView === 'reader' && st.novelId && st.chapterId) {
+        if (!state.novels.some((n) => n.id === st.novelId)) {
+          showView('library');
+          syncNavHistory('library', null, null, { replace: true });
+          renderLibrary();
+          return;
+        }
+        if (state.activeNovelId !== st.novelId || state.chapters.length === 0) {
+          state.activeNovelId = st.novelId;
+          await loadChaptersForNovel(st.novelId);
+        }
+        if (state.chapters.some((c) => c.id === st.chapterId)) {
+          openReaderChapter(st.chapterId, false, false, { fromPopstate: true });
+        } else {
+          await openNovelDetail(st.novelId, { fromPopstate: true });
+        }
+      }
+    });
 
     // Novel Modal
     $('inputNovelCover').addEventListener('input', updateCoverPreview);
