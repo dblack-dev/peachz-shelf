@@ -1,11 +1,11 @@
-/* Peachz Shelf — Service Worker
- * - App shell: precache แล้วใช้ cache-first (เปิดอ่านแบบออฟไลน์ได้)
+/* NovelTrans Studio — Service Worker
+ * - App shell: precache แล้วใช้ cache-first / offline fallback
  * - CDN (Tailwind / Google Fonts): stale-while-revalidate
- * - Firebase / Google Auth / Firestore APIs: ผ่านเน็ตตรง ๆ ไม่แคช
+ * - Firebase / Google Auth / Firestore / Gemini APIs: ผ่านเน็ตตรง ๆ ไม่แคช
  */
-const VERSION = 'v2.12.0';
-const SHELL_CACHE = `peachz-shelf-shell-${VERSION}`;
-const RUNTIME_CACHE = `peachz-shelf-runtime-${VERSION}`;
+const VERSION = 'v1.5.0';
+const SHELL_CACHE = `noveltrans-shell-${VERSION}`;
+const RUNTIME_CACHE = `noveltrans-runtime-${VERSION}`;
 
 const SHELL_ASSETS = [
   './',
@@ -44,7 +44,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keep = new Set([SHELL_CACHE, RUNTIME_CACHE]);
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith('peachz-shelf-') && !keep.has(k)).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith('noveltrans-') && !keep.has(k)).map((k) => caches.delete(k)));
     if (self.registration.navigationPreload) {
       try { await self.registration.navigationPreload.disable(); } catch (e) {}
     }
@@ -63,11 +63,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // Never intercept Firebase / Google API / Identity endpoints
+  // Never intercept Firebase / Google API / Identity / AI endpoints
   if (
-    url.hostname.includes('googleapis.com') && !CDN_HOSTS.has(url.hostname) ||
+    (url.hostname.includes('googleapis.com') && !CDN_HOSTS.has(url.hostname)) ||
     url.hostname.includes('firebase') ||
-    url.hostname.includes('gstatic.com') && !CDN_HOSTS.has(url.hostname) ||
+    (url.hostname.includes('gstatic.com') && !CDN_HOSTS.has(url.hostname)) ||
     url.hostname === 'accounts.google.com'
   ) {
     return;
