@@ -2577,6 +2577,105 @@
     }
 
     const SHELF_HANDOFF_KEY = 'peachz_suite_handoff_v1';
+    const PEACHZ_SUITE_APP_ID = 'peachz-shelf';
+    const PEACHZ_TITLE_BADGE = '🔔 มีงานใหม่! · ';
+    const PEACHZ_TAB_ID = Math.random().toString(36).slice(2) + '_' + Date.now();
+    const peachzSuiteBus = typeof BroadcastChannel === 'function' ? new BroadcastChannel('peachz_suite_bus_v1') : null;
+
+    function setSuiteTitleBadge(hasPending) {
+      const cur = String(document.title || '');
+      if (hasPending) {
+        if (document.hidden && !cur.startsWith(PEACHZ_TITLE_BADGE)) {
+          document.title = PEACHZ_TITLE_BADGE + cur;
+        }
+      } else if (cur.startsWith(PEACHZ_TITLE_BADGE)) {
+        document.title = cur.slice(PEACHZ_TITLE_BADGE.length);
+      }
+    }
+
+    function dispatchSuiteHandoff(targetApp, url, windowName, onDone) {
+      try {
+        peachzSuiteBus?.postMessage({ type: 'handoff', targetApp, ts: Date.now() });
+      } catch (e) {}
+
+      const refs = (window.__peachzTabRefs = window.__peachzTabRefs || {});
+      const cached = refs[targetApp];
+      let sameSuiteTab = false;
+      if (cached && !cached.closed) {
+        try {
+          sameSuiteTab = cached.location && cached.location.origin === window.location.origin && cached.location.pathname.includes('/' + targetApp);
+        } catch (e) {
+          sameSuiteTab = false;
+        }
+      }
+      if (sameSuiteTab) {
+        try { cached.focus(); } catch (e) {}
+        if (typeof onDone === 'function') onDone('focused');
+        return Promise.resolve({ reused: true, focused: true });
+      }
+
+      return new Promise((resolve) => {
+        if (!peachzSuiteBus) {
+          const w = window.open(url, windowName || ('peachz_' + targetApp + '_tab'));
+          if (w) refs[targetApp] = w;
+          if (typeof onDone === 'function') onDone(w ? 'opened' : 'blocked');
+          resolve({ reused: false, focused: !!w });
+          return;
+        }
+
+        const reqId = PEACHZ_TAB_ID + '_' + Math.random().toString(36).slice(2);
+        let settled = false;
+        let timer = null;
+
+        const finishOpen = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          peachzSuiteBus.removeEventListener('message', onPong);
+          const w = window.open(url, windowName || ('peachz_' + targetApp + '_tab'));
+          if (w) refs[targetApp] = w;
+          if (typeof onDone === 'function') onDone(w ? 'opened' : 'blocked');
+          resolve({ reused: false, focused: !!w });
+        };
+
+        const onPong = (ev) => {
+          const d = ev && ev.data;
+          if (!d || d.type !== 'pong' || d.targetApp !== targetApp || d.reqId !== reqId) return;
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          peachzSuiteBus.removeEventListener('message', onPong);
+          try { peachzSuiteBus.postMessage({ type: 'handoff', targetApp, ts: Date.now() }); } catch (e) {}
+          if (typeof onDone === 'function') onDone('already_open');
+          resolve({ reused: true, focused: false });
+        };
+
+        peachzSuiteBus.addEventListener('message', onPong);
+        timer = setTimeout(finishOpen, 90);
+        try {
+          peachzSuiteBus.postMessage({ type: 'ping', targetApp, reqId });
+        } catch (e) {
+          finishOpen();
+        }
+      });
+    }
+
+    if (peachzSuiteBus) {
+      peachzSuiteBus.addEventListener('message', (ev) => {
+        const d = ev && ev.data;
+        if (!d || d.targetApp !== PEACHZ_SUITE_APP_ID) return;
+        if (d.type === 'ping') {
+          try {
+            peachzSuiteBus.postMessage({ type: 'pong', targetApp: PEACHZ_SUITE_APP_ID, reqId: d.reqId, senderTabId: PEACHZ_TAB_ID });
+          } catch (e) {}
+        } else if (d.type === 'handoff') {
+          checkShelfIncomingHandoff();
+          if (document.hidden && readShelfIncomingHandoff()) {
+            setSuiteTitleBadge(true);
+          }
+        }
+      });
+    }
 
     function readShelfIncomingHandoff() {
       try {
@@ -2602,6 +2701,7 @@
       const payload = state.user ? readShelfIncomingHandoff() : null;
       if (!payload) {
         banner.classList.add('hidden');
+        setSuiteTitleBadge(false);
         return;
       }
 
@@ -2643,6 +2743,7 @@
       } catch (e) {}
       const banner = $('shelfHandoffBanner');
       if (banner) banner.classList.add('hidden');
+      setSuiteTitleBadge(false);
     }
 
     async function acceptShelfIncomingHandoff() {
@@ -2695,6 +2796,7 @@
           localStorage.removeItem(SHELF_HANDOFF_KEY);
         } catch (e) {}
         $('shelfHandoffBanner')?.classList.add('hidden');
+        setSuiteTitleBadge(false);
         renderLibrary();
         await openNovelDetail(novel.id);
         showToast(`เพิ่ม "${cleanTitle}" เข้าชั้น "${novel.title}" แล้ว 📚`);
@@ -5626,8 +5728,17 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         showToast('บันทึกข้อมูลส่งต่อไม่สำเร็จ กรุณาลองคัดลอกแทนครับ');
         return;
       }
-      window.open('https://dblack-dev.github.io/noveltransstudio/?handoff=1', 'peachz_noveltrans_tab');
-      showToast('ส่งต้นฉบับไป NovelTrans Studio แล้ว 📖✨');
+      dispatchSuiteHandoff('noveltransstudio', 'https://dblack-dev.github.io/noveltransstudio/?handoff=1', 'peachz_noveltrans_tab', (status) => {
+        if (status === 'focused') {
+          showToast('ส่งต้นฉบับไป NovelTrans Studio แล้ว · สลับไปแท็บที่เปิดค้างไว้ให้แล้ว ✨');
+        } else if (status === 'already_open') {
+          showToast('ส่งต้นฉบับไปแท็บ NovelTrans ที่เปิดอยู่แล้ว (ไม่เปิดแท็บซ้ำ) · คลิกสลับแท็บไปดูได้เลย 🔔');
+        } else if (status === 'blocked') {
+          showToast('เตรียมส่งต้นฉบับแล้ว · คลิกสลับไปแท็บ NovelTrans หรือเปิดจากเมนูแอป 🍑');
+        } else {
+          showToast('ส่งต้นฉบับไป NovelTrans Studio แล้ว 📖✨');
+        }
+      });
     }
 
     async function triggerReaderTranslate(engine) {
@@ -6710,7 +6821,20 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
     $('btnShelfAcceptHandoff')?.addEventListener('click', acceptShelfIncomingHandoff);
     $('btnShelfDismissHandoff')?.addEventListener('click', dismissShelfIncomingHandoff);
-    window.addEventListener('focus', checkShelfIncomingHandoff);
+    const onShelfFocusOrVisible = () => {
+      if (!document.hidden) setSuiteTitleBadge(false);
+      checkShelfIncomingHandoff();
+    };
+    window.addEventListener('focus', onShelfFocusOrVisible);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) onShelfFocusOrVisible();
+    });
+    window.addEventListener('storage', (e) => {
+      if (e.key === SHELF_HANDOFF_KEY) {
+        checkShelfIncomingHandoff();
+        if (document.hidden && readShelfIncomingHandoff()) setSuiteTitleBadge(true);
+      }
+    });
 
     $('btnUserMenu').addEventListener('click', (e) => {
       e.stopPropagation();
