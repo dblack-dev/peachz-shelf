@@ -286,22 +286,26 @@
       </button>
     </div>
 
-    <!-- ===================================================================
-         VIEW 1: LIBRARY (ชั้นหนังสือ)
-         =================================================================== -->
-    <main id="viewLibrary" class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
-      <!-- Cross-App Handoff Banner -->
-      <div id="shelfHandoffBanner" class="hidden rounded-3xl bg-app-surface border-2 border-app-accent shadow-sm p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+    <!-- Cross-App Handoff Banner (visible across Library, Detail, and Reader views) -->
+    <div id="shelfHandoffWrap" class="max-w-6xl w-full mx-auto px-3 sm:px-6">
+      <div id="shelfHandoffBanner" class="hidden my-2 sm:my-3 rounded-3xl bg-app-surface border-2 border-app-accent shadow-sm p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div class="min-w-0 space-y-1">
           <div class="flex items-center gap-2 text-xs font-bold text-app-accent">
             <span>🍑</span>
-            <span>มีบทความที่ส่งมาจาก Peachz Suite พร้อมนำเข้าเป็นตอนใหม่</span>
+            <span id="shelfHandoffHeading">มีบทความที่ส่งมาจาก Peachz Suite พร้อมนำเข้าเป็นตอนใหม่</span>
           </div>
           <div id="shelfHandoffMeta" class="text-xs sm:text-sm font-medium text-app-main truncate"></div>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
           <select id="selectHandoffTargetNovel" class="max-w-[230px] px-3 py-2 rounded-xl bg-app-subtle border border-app text-xs text-app-main focus:outline-none">
-            <option value="">เลือกเรื่องที่ต้องการเพิ่มตอน...</option>
+            <option value="">เลือกเรื่องที่ต้องการ...</option>
+          </select>
+          <select id="selectHandoffTargetChapter" class="hidden max-w-[230px] px-3 py-2 rounded-xl bg-app-subtle border border-app text-xs text-app-main focus:outline-none">
+            <option value="">เลือกตอน...</option>
+          </select>
+          <select id="selectHandoffNoteMode" class="hidden px-2.5 py-2 rounded-xl bg-app-subtle border border-app text-xs text-app-main focus:outline-none">
+            <option value="append">➕ ต่อท้ายโน้ตเดิม</option>
+            <option value="replace">✏️ บันทึกทับโน้ตเดิม</option>
           </select>
           <button id="btnShelfAcceptHandoff" type="button"
             class="px-3.5 py-2 rounded-xl bg-app-accent hover:opacity-95 text-white text-xs font-semibold shadow-sm transition">
@@ -313,7 +317,12 @@
           </button>
         </div>
       </div>
+    </div>
 
+    <!-- ===================================================================
+         VIEW 1: LIBRARY (ชั้นหนังสือ)
+         =================================================================== -->
+    <main id="viewLibrary" class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
       <!-- Continue Reading Banner -->
       <div id="continueBanner" class="hidden rounded-3xl bg-app-surface border border-app shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-3.5 min-w-0">
@@ -2691,10 +2700,89 @@
       }
     }
 
+    window.__shelfHandoffChaptersCache = window.__shelfHandoffChaptersCache || {};
+
+    async function populateHandoffChaptersForNovel(novelId, payload) {
+      const chapSelect = $('selectHandoffTargetChapter');
+      const novelSelect = $('selectHandoffTargetNovel');
+      const acceptBtn = $('btnShelfAcceptHandoff');
+      if (!chapSelect) return;
+
+      const isNote = payload && payload.kind === 'chapter_note';
+      chapSelect.innerHTML = '';
+      if (!state.user || !novelId) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'ไม่พบตอนในเรื่องนี้';
+        chapSelect.appendChild(opt);
+        if (acceptBtn && isNote) acceptBtn.disabled = true;
+        return;
+      }
+
+      let chapters = [];
+      if (state.activeNovelId === novelId && Array.isArray(state.chapters) && state.chapters.length) {
+        chapters = [...state.chapters];
+        window.__shelfHandoffChaptersCache[novelId] = chapters;
+      } else if (Array.isArray(window.__shelfHandoffChaptersCache[novelId])) {
+        chapters = window.__shelfHandoffChaptersCache[novelId];
+      } else {
+        const loadingOpt = document.createElement('option');
+        loadingOpt.value = '';
+        loadingOpt.textContent = 'กำลังโหลดรายชื่อตอน...';
+        chapSelect.appendChild(loadingOpt);
+        if (acceptBtn && isNote) acceptBtn.disabled = true;
+        try {
+          const q = query(
+            collection(db, 'users', state.user.uid, 'readerNovels', novelId, 'chapters'),
+            orderBy('order', 'asc')
+          );
+          const snap = await getDocs(q);
+          chapters = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          window.__shelfHandoffChaptersCache[novelId] = chapters;
+        } catch (err) {
+          console.error('populateHandoffChaptersForNovel failed:', err);
+          chapters = [];
+        }
+        if (novelSelect && novelSelect.value !== novelId) return;
+      }
+
+      chapSelect.innerHTML = '';
+      if (!chapters.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'ยังไม่มีตอนในเรื่องนี้';
+        chapSelect.appendChild(opt);
+        if (acceptBtn && isNote) acceptBtn.disabled = true;
+        return;
+      }
+
+      chapters.forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        const ord = Number(c.order || 0);
+        const titlePart = c.title ? ` — ${c.title}` : '';
+        opt.textContent = `ตอนที่ #${ord}${titlePart}`;
+        chapSelect.appendChild(opt);
+      });
+
+      const hasOrd = payload && payload.chapterOrder !== null && payload.chapterOrder !== undefined && String(payload.chapterOrder).trim() !== '';
+      const chosen =
+        (payload?.chapterId && chapters.find((c) => c.id === payload.chapterId)) ||
+        (hasOrd && chapters.find((c) => Number(c.order) === Number(payload.chapterOrder))) ||
+        (state.activeNovelId === novelId && state.activeChapterId && chapters.find((c) => c.id === state.activeChapterId)) ||
+        chapters[0];
+
+      chapSelect.value = chosen.id;
+      if (acceptBtn && isNote) acceptBtn.disabled = false;
+    }
+
     function checkShelfIncomingHandoff() {
       const banner = $('shelfHandoffBanner');
+      const heading = $('shelfHandoffHeading');
       const meta = $('shelfHandoffMeta');
       const selectEl = $('selectHandoffTargetNovel');
+      const chapSelect = $('selectHandoffTargetChapter');
+      const noteModeEl = $('selectHandoffNoteMode');
       const acceptBtn = $('btnShelfAcceptHandoff');
       if (!banner || !meta || !selectEl) return;
 
@@ -2705,10 +2793,24 @@
         return;
       }
 
+      const isNote = payload.kind === 'chapter_note';
+      if (heading) {
+        heading.textContent = isNote
+          ? 'มีสรุปจากพี่ตูบพร้อมเก็บเข้า "เรื่องย่อ / ข้อมูลประจำตอน"'
+          : 'มีบทความที่ส่งมาจาก Peachz Suite พร้อมนำเข้าเป็นตอนใหม่';
+      }
+      if (acceptBtn) {
+        acceptBtn.textContent = isNote ? '📝 บันทึกเข้าเรื่องย่อตอน' : '📥 เพิ่มเข้าชั้น';
+      }
+      if (chapSelect) chapSelect.classList.toggle('hidden', !isNote);
+      if (noteModeEl) noteModeEl.classList.toggle('hidden', !isNote);
+
       const sourceLabel = payload.sourceApp || 'Peachz Haus Studio';
-      const titleLabel = payload.title || 'ตอนใหม่';
+      const titleLabel = payload.title || (isNote ? 'สรุปจากพี่ตูบ' : 'ตอนใหม่');
       const charCount = String(payload.content).length.toLocaleString('th-TH');
-      meta.textContent = `จาก ${sourceLabel}: "${titleLabel}" (${charCount} ตัวอักษร)`;
+      meta.textContent = isNote
+        ? `จาก ${sourceLabel}: "${titleLabel}" (${charCount} ตัวอักษร) • บันทึกลงเรื่องย่อประจำตอน`
+        : `จาก ${sourceLabel}: "${titleLabel}" (${charCount} ตัวอักษร)`;
 
       const prevSelected = selectEl.value;
       selectEl.innerHTML = '';
@@ -2725,12 +2827,23 @@
           opt.textContent = n.title || n.translatedTitle || 'ไม่มีชื่อเรื่อง';
           selectEl.appendChild(opt);
         });
-        if (prevSelected && state.novels.some((n) => n.id === prevSelected)) {
-          selectEl.value = prevSelected;
-        } else {
-          selectEl.value = state.novels[0].id;
-        }
+
+        const norm = (s) => String(s || '').trim().toLowerCase();
+        const candTitles = [payload.novelTitle, payload.translatedTitle].map(norm).filter(Boolean);
+        const byId = payload.novelId ? state.novels.find((n) => n.id === payload.novelId) : null;
+        const byTitle = (!byId && candTitles.length)
+          ? state.novels.find((n) => {
+              const t1 = norm(n.title);
+              const t2 = norm(n.translatedTitle);
+              return candTitles.some((ct) => (t1 && (t1 === ct || t1.includes(ct) || ct.includes(t1))) || (t2 && (t2 === ct || t2.includes(ct) || ct.includes(t2))));
+            })
+          : null;
+        const byActive = state.activeNovelId ? state.novels.find((n) => n.id === state.activeNovelId) : null;
+        const byPrev = prevSelected ? state.novels.find((n) => n.id === prevSelected) : null;
+        const selectedNovel = byId || byTitle || byActive || byPrev || state.novels[0];
+        selectEl.value = selectedNovel.id;
         if (acceptBtn) acceptBtn.disabled = false;
+        if (isNote) populateHandoffChaptersForNovel(selectedNovel.id, payload);
       }
 
       banner.classList.remove('hidden');
@@ -2757,12 +2870,82 @@
       const novelId = selectEl ? selectEl.value : '';
       const novel = state.novels.find((n) => n.id === novelId);
       if (!novel) {
-        showToast('กรุณาเลือกนิยายที่ต้องการเพิ่มตอน (หรือสร้างเรื่องใหม่ก่อน)');
+        showToast('กรุณาเลือกนิยายที่ต้องการ (หรือสร้างเรื่องใหม่ก่อน)');
         return;
       }
 
       const acceptBtn = $('btnShelfAcceptHandoff');
       if (acceptBtn) acceptBtn.disabled = true;
+
+      if (payload.kind === 'chapter_note') {
+        const chapSelect = $('selectHandoffTargetChapter');
+        const noteModeEl = $('selectHandoffNoteMode');
+        const chapterId = chapSelect ? chapSelect.value : '';
+        const noteMode = noteModeEl ? noteModeEl.value : 'append';
+        if (!chapterId) {
+          showToast('กรุณาเลือกตอนที่ต้องการบันทึกสรุปครับ');
+          if (acceptBtn) acceptBtn.disabled = false;
+          return;
+        }
+        try {
+          const cachedList = window.__shelfHandoffChaptersCache?.[novel.id];
+          let targetCh = (state.activeNovelId === novel.id ? state.chapters.find((c) => c.id === chapterId) : null)
+            || (Array.isArray(cachedList) ? cachedList.find((c) => c.id === chapterId) : null);
+
+          let existingNote = targetCh && typeof targetCh.note === 'string' ? targetCh.note : undefined;
+          if (existingNote === undefined && noteMode === 'append') {
+            const snap = await getDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', chapterId));
+            existingNote = snap.exists() ? String(snap.data()?.note || '') : '';
+          }
+
+          const incoming = String(payload.content || '').trim();
+          const existing = String(existingNote || '').trim();
+          const finalNote = (noteMode === 'append' && existing)
+            ? `${existing}\n\n---\n\n${incoming}`.slice(0, 20000)
+            : incoming.slice(0, 20000);
+          const now = Date.now();
+
+          await updateDoc(
+            doc(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters', chapterId),
+            { note: finalNote, updatedAt: now }
+          );
+
+          if (Array.isArray(cachedList)) {
+            const cachedCh = cachedList.find((c) => c.id === chapterId);
+            if (cachedCh) {
+              cachedCh.note = finalNote;
+              cachedCh.updatedAt = now;
+            }
+          }
+          if (state.activeNovelId === novel.id) {
+            const activeCh = state.chapters.find((c) => c.id === chapterId);
+            if (activeCh) {
+              activeCh.note = finalNote;
+              activeCh.updatedAt = now;
+            }
+            renderChaptersList();
+            if (state.activeChapterId === chapterId && activeCh) {
+              updateReaderNoteIndicator(activeCh);
+            }
+            if (state.editingNoteChapterId === chapterId && !$('chapterNoteModalBackdrop')?.classList.contains('hidden')) {
+              $('inputChapterNote').value = finalNote;
+            }
+          }
+
+          try { localStorage.removeItem(SHELF_HANDOFF_KEY); } catch (e) {}
+          $('shelfHandoffBanner')?.classList.add('hidden');
+          setSuiteTitleBadge(false);
+          const chLabel = targetCh ? `ตอนที่ #${targetCh.order}` : 'ตอนที่เลือก';
+          showToast(`บันทึกสรุปจากพี่ตูบเข้าเรื่องย่อ (${chLabel}) แล้ว 📝✨`);
+        } catch (err) {
+          console.error('acceptShelfIncomingHandoff(chapter_note) failed:', err);
+          showToast('บันทึกสรุปไม่สำเร็จ: ' + (err.code || err.message));
+        } finally {
+          if (acceptBtn) acceptBtn.disabled = false;
+        }
+        return;
+      }
+
       try {
         const chaptersRef = collection(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters');
         const snap = await getDocs(chaptersRef);
@@ -5716,6 +5899,8 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         localStorage.setItem(SHELF_HANDOFF_KEY, JSON.stringify({
           target: 'noveltransstudio',
           sourceApp: 'Peachz Shelf',
+          novelId: String(novel.id || ''),
+          chapterId: String(ch.id || ''),
           novelTitle: String(novel.title || '').trim(),
           translatedTitle: String(novel.translatedTitle || '').trim(),
           chapterOrder: Number(ch.order || 1),
@@ -6821,6 +7006,12 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
     });
     $('btnShelfAcceptHandoff')?.addEventListener('click', acceptShelfIncomingHandoff);
     $('btnShelfDismissHandoff')?.addEventListener('click', dismissShelfIncomingHandoff);
+    $('selectHandoffTargetNovel')?.addEventListener('change', (e) => {
+      const p = readShelfIncomingHandoff();
+      if (p && p.kind === 'chapter_note') {
+        populateHandoffChaptersForNovel(e.target.value, p);
+      }
+    });
     const onShelfFocusOrVisible = () => {
       if (!document.hidden) setSuiteTitleBadge(false);
       checkShelfIncomingHandoff();
