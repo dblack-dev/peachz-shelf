@@ -218,6 +218,38 @@
           <span class="hidden sm:inline">เพิ่มเรื่องใหม่</span>
         </button>
 
+        <!-- Peachz Suite App Switcher -->
+        <div id="peachzSuiteMenuWrap" class="relative shrink-0">
+          <button id="btnPeachzSuiteMenu" type="button" aria-expanded="false" title="สลับไปยังแอปอื่นใน Peachz Suite"
+            class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-app-subtle hover:opacity-90 border border-app text-app-main text-xs font-semibold flex items-center gap-1 transition">
+            <span>🍑</span>
+            <span class="hidden sm:inline">แอป</span>
+            <span class="text-[10px] opacity-70">▾</span>
+          </button>
+          <div id="peachzSuiteDropdown" class="hidden absolute right-0 mt-2 w-64 bg-app-surface border border-app rounded-2xl shadow-xl p-1.5 z-50 text-left space-y-0.5">
+            <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-app-sub">Peachz Writer Suite</div>
+            <a href="https://dblack-dev.github.io/peachz-pwa/" target="_blank" rel="noopener"
+              class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl hover:bg-app-subtle text-xs text-app-main transition">
+              <span>🍑 Peachz Haus Studio</span>
+              <span class="text-[10px] text-app-sub">จัดหน้า</span>
+            </a>
+            <a href="https://dblack-dev.github.io/pomehelpmami/" target="_blank" rel="noopener"
+              class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl hover:bg-app-subtle text-xs text-app-main transition">
+              <span>🐶 น้องหมาช่วยแปล</span>
+              <span class="text-[10px] text-app-sub">พี่ตูบ</span>
+            </a>
+            <a href="https://dblack-dev.github.io/noveltransstudio/" target="_blank" rel="noopener"
+              class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl hover:bg-app-subtle text-xs text-app-main transition">
+              <span>📖 NovelTrans Studio</span>
+              <span class="text-[10px] text-app-sub">คลังศัพท์</span>
+            </a>
+            <div class="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-app-accent-soft text-app-accent text-xs font-semibold">
+              <span>📚 Peachz Shelf</span>
+              <span class="text-[10px]">ใช้งานอยู่</span>
+            </div>
+          </div>
+        </div>
+
         <!-- User Account Menu -->
         <div id="userMenuWrap" class="relative">
           <button id="btnUserMenu" type="button"
@@ -252,6 +284,30 @@
          VIEW 1: LIBRARY (ชั้นหนังสือ)
          =================================================================== -->
     <main id="viewLibrary" class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
+      <!-- Cross-App Handoff Banner -->
+      <div id="shelfHandoffBanner" class="hidden rounded-3xl bg-app-surface border-2 border-app-accent shadow-sm p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div class="min-w-0 space-y-1">
+          <div class="flex items-center gap-2 text-xs font-bold text-app-accent">
+            <span>🍑</span>
+            <span>มีบทความที่ส่งมาจาก Peachz Suite พร้อมนำเข้าเป็นตอนใหม่</span>
+          </div>
+          <div id="shelfHandoffMeta" class="text-xs sm:text-sm font-medium text-app-main truncate"></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <select id="selectHandoffTargetNovel" class="max-w-[230px] px-3 py-2 rounded-xl bg-app-subtle border border-app text-xs text-app-main focus:outline-none">
+            <option value="">เลือกเรื่องที่ต้องการเพิ่มตอน...</option>
+          </select>
+          <button id="btnShelfAcceptHandoff" type="button"
+            class="px-3.5 py-2 rounded-xl bg-app-accent hover:opacity-95 text-white text-xs font-semibold shadow-sm transition">
+            📥 เพิ่มเข้าชั้น
+          </button>
+          <button id="btnShelfDismissHandoff" type="button"
+            class="px-3 py-2 rounded-xl bg-app-subtle hover:opacity-80 border border-app text-xs text-app-sub transition">
+            ปิด
+          </button>
+        </div>
+      </div>
+
       <!-- Continue Reading Banner -->
       <div id="continueBanner" class="hidden rounded-3xl bg-app-surface border border-app shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-3.5 min-w-0">
@@ -2389,9 +2445,140 @@
         const snap = await getDocs(q);
         state.novels = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         renderLibrary();
+        checkShelfIncomingHandoff();
       } catch (err) {
         console.error('loadNovels failed:', err);
         showToast('โหลดชั้นหนังสือไม่สำเร็จ: ' + (err.code || err.message));
+      }
+    }
+
+    const SHELF_HANDOFF_KEY = 'peachz_suite_handoff_v1';
+
+    function readShelfIncomingHandoff() {
+      try {
+        const raw = localStorage.getItem(SHELF_HANDOFF_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.target !== 'peachz-shelf' || !parsed.content || !String(parsed.content).trim()) {
+          return null;
+        }
+        return parsed;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function checkShelfIncomingHandoff() {
+      const banner = $('shelfHandoffBanner');
+      const meta = $('shelfHandoffMeta');
+      const selectEl = $('selectHandoffTargetNovel');
+      const acceptBtn = $('btnShelfAcceptHandoff');
+      if (!banner || !meta || !selectEl) return;
+
+      const payload = state.user ? readShelfIncomingHandoff() : null;
+      if (!payload) {
+        banner.classList.add('hidden');
+        return;
+      }
+
+      const sourceLabel = payload.sourceApp || 'Peachz Haus Studio';
+      const titleLabel = payload.title || 'ตอนใหม่';
+      const charCount = String(payload.content).length.toLocaleString('th-TH');
+      meta.textContent = `จาก ${sourceLabel}: "${titleLabel}" (${charCount} ตัวอักษร)`;
+
+      const prevSelected = selectEl.value;
+      selectEl.innerHTML = '';
+      if (!state.novels.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'ยังไม่มีเรื่องในชั้น (กรุณาเพิ่มเรื่องใหม่ก่อน)';
+        selectEl.appendChild(opt);
+        if (acceptBtn) acceptBtn.disabled = true;
+      } else {
+        state.novels.forEach((n) => {
+          const opt = document.createElement('option');
+          opt.value = n.id;
+          opt.textContent = n.title || n.translatedTitle || 'ไม่มีชื่อเรื่อง';
+          selectEl.appendChild(opt);
+        });
+        if (prevSelected && state.novels.some((n) => n.id === prevSelected)) {
+          selectEl.value = prevSelected;
+        } else {
+          selectEl.value = state.novels[0].id;
+        }
+        if (acceptBtn) acceptBtn.disabled = false;
+      }
+
+      banner.classList.remove('hidden');
+    }
+
+    function dismissShelfIncomingHandoff() {
+      try {
+        const payload = readShelfIncomingHandoff();
+        if (payload) localStorage.removeItem(SHELF_HANDOFF_KEY);
+      } catch (e) {}
+      const banner = $('shelfHandoffBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    async function acceptShelfIncomingHandoff() {
+      if (!state.user) return;
+      const payload = readShelfIncomingHandoff();
+      if (!payload) {
+        checkShelfIncomingHandoff();
+        return;
+      }
+      const selectEl = $('selectHandoffTargetNovel');
+      const novelId = selectEl ? selectEl.value : '';
+      const novel = state.novels.find((n) => n.id === novelId);
+      if (!novel) {
+        showToast('กรุณาเลือกนิยายที่ต้องการเพิ่มตอน (หรือสร้างเรื่องใหม่ก่อน)');
+        return;
+      }
+
+      const acceptBtn = $('btnShelfAcceptHandoff');
+      if (acceptBtn) acceptBtn.disabled = true;
+      try {
+        const chaptersRef = collection(db, 'users', state.user.uid, 'readerNovels', novel.id, 'chapters');
+        const snap = await getDocs(chaptersRef);
+        let maxOrder = 0;
+        snap.docs.forEach((d) => {
+          const ord = Number(d.data()?.order || 0);
+          if (ord > maxOrder) maxOrder = ord;
+        });
+        const nextOrder = Math.min(1000000, Math.max(1, maxOrder + 1));
+        const now = Date.now();
+        const cleanTitle = (String(payload.title || '').trim() || `ตอนที่ ${nextOrder}`).slice(0, 200);
+        const cleanContent = String(payload.content || '').slice(0, 800000);
+
+        await addDoc(chaptersRef, {
+          order: nextOrder,
+          title: cleanTitle,
+          content: cleanContent,
+          wordCount: countWordsApprox(cleanContent),
+          createdAt: now,
+          updatedAt: now
+        });
+
+        novel.chapterCount = Math.max(Number(novel.chapterCount || 0) + 1, snap.size + 1);
+        novel.updatedAt = now;
+        await updateDoc(doc(db, 'users', state.user.uid, 'readerNovels', novel.id), {
+          chapterCount: novel.chapterCount,
+          updatedAt: now
+        });
+
+        try {
+          localStorage.removeItem(SHELF_HANDOFF_KEY);
+        } catch (e) {}
+        $('shelfHandoffBanner')?.classList.add('hidden');
+        renderLibrary();
+        await openNovelDetail(novel.id);
+        showToast(`เพิ่ม "${cleanTitle}" เข้าชั้น "${novel.title}" แล้ว 📚`);
+      } catch (err) {
+        console.error('acceptShelfIncomingHandoff failed:', err);
+        showToast('เพิ่มตอนเข้าชั้นไม่สำเร็จ: ' + (err.code || err.message));
+      } finally {
+        if (acceptBtn) acceptBtn.disabled = false;
       }
     }
 
@@ -6254,12 +6441,29 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       }
     });
 
+    $('btnPeachzSuiteMenu')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dd = $('peachzSuiteDropdown');
+      const btn = $('btnPeachzSuiteMenu');
+      if (!dd) return;
+      const willOpen = dd.classList.contains('hidden');
+      dd.classList.toggle('hidden', !willOpen);
+      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    $('btnShelfAcceptHandoff')?.addEventListener('click', acceptShelfIncomingHandoff);
+    $('btnShelfDismissHandoff')?.addEventListener('click', dismissShelfIncomingHandoff);
+    window.addEventListener('focus', checkShelfIncomingHandoff);
+
     $('btnUserMenu').addEventListener('click', (e) => {
       e.stopPropagation();
       $('userDropdown').classList.toggle('hidden');
     });
     document.addEventListener('click', (e) => {
       if (!$('userMenuWrap').contains(e.target)) $('userDropdown').classList.add('hidden');
+      if ($('peachzSuiteMenuWrap') && !$('peachzSuiteMenuWrap').contains(e.target)) {
+        $('peachzSuiteDropdown')?.classList.add('hidden');
+        $('btnPeachzSuiteMenu')?.setAttribute('aria-expanded', 'false');
+      }
     });
     $('btnLogout').addEventListener('click', async () => {
       await signOut(auth);
