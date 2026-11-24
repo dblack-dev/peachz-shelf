@@ -1823,6 +1823,8 @@
       cloudTranslate: {
         apiKey: '',
         preferCloudInShelf: true,
+        autoCutoffEnabled: true,
+        monthlyCharLimit: 480000,
         month: '',
         monthChars: 0,
         updatedAt: 0
@@ -2277,13 +2279,24 @@
 
     function normalizeCloudTranslateObj(parsed, fallbackUpdatedAt = 0) {
       const curMonth = getShelfLocalMonthKey();
+      const rawLimit = Number(parsed?.monthlyCharLimit || 480000);
       return {
         apiKey: String(parsed?.apiKey || '').trim(),
         preferCloudInShelf: parsed?.preferCloudInShelf !== false,
+        autoCutoffEnabled: parsed?.autoCutoffEnabled !== false,
+        monthlyCharLimit: Number.isFinite(rawLimit) && rawLimit >= 10000 ? Math.round(rawLimit) : 480000,
         month: curMonth,
         monthChars: parsed?.month === curMonth ? Number(parsed?.monthChars || 0) : 0,
         updatedAt: Number(parsed?.updatedAt || fallbackUpdatedAt || 0)
       };
+    }
+
+    function isCloudTranslateWithinFreeLimit(cfg, incomingChars = 0) {
+      if (!cfg || !cfg.apiKey) return false;
+      if (cfg.autoCutoffEnabled === false) return true;
+      const limit = Math.max(10000, Number(cfg.monthlyCharLimit || 480000));
+      const used = Number(cfg.monthChars || 0);
+      return (used + Math.max(0, Number(incomingChars) || 0)) <= limit;
     }
 
     function getEffectiveCloudTranslateConfig() {
@@ -2334,6 +2347,8 @@
       const updated = {
         apiKey: base.apiKey,
         preferCloudInShelf: base.preferCloudInShelf !== false,
+        autoCutoffEnabled: base.autoCutoffEnabled !== false,
+        monthlyCharLimit: Math.max(10000, Number(base.monthlyCharLimit || 480000)),
         month: curMonth,
         monthChars: (base.month === curMonth ? Number(base.monthChars || 0) : 0) + add,
         updatedAt: now
@@ -5538,17 +5553,26 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         transEngine = `ai:${usedModel}`.slice(0, 60);
       } else {
         const cloudCfg = getEffectiveCloudTranslateConfig();
+        const incomingChars = String(ch.title || '').length + String(ch.content || '').length;
         if (cloudCfg.apiKey && cloudCfg.preferCloudInShelf !== false) {
-          try {
-            translatedTitle = (await translateTextViaGoogleCloud(ch.title, entries)).slice(0, 200) || ch.title;
-            translatedContent = (await translateTextViaGoogleCloud(ch.content, entries)).slice(0, 800000);
-            transEngine = 'cloud_translate';
-          } catch (cloudErr) {
-            console.warn('Google Cloud Translate failed, falling back to free endpoint:', cloudErr);
-            showToast('⚠️ ' + (cloudErr?.message || 'Cloud Translate ขัดข้อง') + ' — สลับใช้แปลฟรีให้ชั่วคราว');
+          if (!isCloudTranslateWithinFreeLimit(cloudCfg, incomingChars)) {
+            const limitFmt = Math.max(10000, Number(cloudCfg.monthlyCharLimit || 480000)).toLocaleString('th-TH');
+            showToast(`🛡️ ใกล้ครบเพดานฟรี Cloud Translate (${limitFmt} ตัวอักษร/เดือน) แล้ว — สลับไปแปลด่วนฟรีให้อัตโนมัติ`);
             translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
             translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
             transEngine = 'free';
+          } else {
+            try {
+              translatedTitle = (await translateTextViaGoogleCloud(ch.title, entries)).slice(0, 200) || ch.title;
+              translatedContent = (await translateTextViaGoogleCloud(ch.content, entries)).slice(0, 800000);
+              transEngine = 'cloud_translate';
+            } catch (cloudErr) {
+              console.warn('Google Cloud Translate failed, falling back to free endpoint:', cloudErr);
+              showToast('⚠️ ' + (cloudErr?.message || 'Cloud Translate ขัดข้อง') + ' — สลับใช้แปลฟรีให้ชั่วคราว');
+              translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
+              translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
+              transEngine = 'free';
+            }
           }
         } else {
           translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
@@ -5588,7 +5612,9 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       state.translatingChapter = true;
       $('btnReaderTransFree').disabled = true;
       $('btnReaderTransAi').disabled = true;
-      const cloudActive = Boolean(getEffectiveCloudTranslateConfig().apiKey && getEffectiveCloudTranslateConfig().preferCloudInShelf !== false);
+      const cfg = getEffectiveCloudTranslateConfig();
+      const estChars = String(ch.title || '').length + String(ch.content || '').length;
+      const cloudActive = Boolean(cfg.apiKey && cfg.preferCloudInShelf !== false && isCloudTranslateWithinFreeLimit(cfg, estChars));
       statusEl.textContent = engine === 'ai'
         ? '✨ กำลังแปลด้วย Gemini AI (โปรดรอสักครู่)...'
         : (cloudActive ? '🌐 กำลังแปลด้วย Google Cloud Translation API...' : '🌐 กำลังแปลด่วนฟรีด้วย Google Translate...');
