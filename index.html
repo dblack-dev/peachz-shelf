@@ -1778,6 +1778,7 @@
 
     const PREFS_LOCAL_KEY = 'peachz_shelf_prefs_v1';
     const TRANS_LOCAL_KEY = 'peachz_translator_cfg_v1';
+    const CLOUD_TRANS_LOCAL_KEY = 'peachz_cloud_translate_v1';
     const SHELF_ORG_LOCAL_KEY = 'peachz_shelf_org_v1';
     const ALLOWED_OWNER_UID = 'b1nmd1qyK0bd48iLLiBGMF3mtCi1';
     const ALLOWED_OWNER_EMAIL = 'dew.blackdevil@gmail.com';
@@ -1819,6 +1820,13 @@
       draftActiveKeyId: '',
       draftSavedModels: [],
       draftSavedTtsModels: [],
+      cloudTranslate: {
+        apiKey: '',
+        preferCloudInShelf: true,
+        month: '',
+        monthChars: 0,
+        updatedAt: 0
+      },
       translator: {
         geminiApiKey: '',
         activeKeyId: '',
@@ -2259,6 +2267,97 @@
         }
       } catch (err) {
         console.warn('Could not load cloud prefs:', err);
+      }
+    }
+
+    function getShelfLocalMonthKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function normalizeCloudTranslateObj(parsed, fallbackUpdatedAt = 0) {
+      const curMonth = getShelfLocalMonthKey();
+      return {
+        apiKey: String(parsed?.apiKey || '').trim(),
+        preferCloudInShelf: parsed?.preferCloudInShelf !== false,
+        month: curMonth,
+        monthChars: parsed?.month === curMonth ? Number(parsed?.monthChars || 0) : 0,
+        updatedAt: Number(parsed?.updatedAt || fallbackUpdatedAt || 0)
+      };
+    }
+
+    function getEffectiveCloudTranslateConfig() {
+      let localCfg = null;
+      try {
+        const raw = localStorage.getItem(CLOUD_TRANS_LOCAL_KEY);
+        if (raw) localCfg = normalizeCloudTranslateObj(JSON.parse(raw));
+      } catch (e) {}
+      const memCfg = normalizeCloudTranslateObj(state.cloudTranslate);
+      if (localCfg && localCfg.updatedAt >= memCfg.updatedAt && (localCfg.apiKey || !memCfg.apiKey)) {
+        state.cloudTranslate = localCfg;
+        return localCfg;
+      }
+      return memCfg;
+    }
+
+    async function loadCloudTranslateConfig() {
+      let localCfg = null;
+      try {
+        const raw = localStorage.getItem(CLOUD_TRANS_LOCAL_KEY);
+        if (raw) localCfg = normalizeCloudTranslateObj(JSON.parse(raw));
+      } catch (e) {}
+      if (localCfg) state.cloudTranslate = localCfg;
+
+      if (!state.user) return;
+      try {
+        const snap = await getDoc(doc(db, 'users', state.user.uid, 'sync', 'peachzCloudTranslate'));
+        if (snap.exists()) {
+          const data = snap.data();
+          const parsed = JSON.parse(data?.stateJson || '{}');
+          const remoteCfg = normalizeCloudTranslateObj(parsed, data?.updatedAt || 0);
+          if (!localCfg || remoteCfg.updatedAt >= localCfg.updatedAt) {
+            state.cloudTranslate = remoteCfg;
+            try { localStorage.setItem(CLOUD_TRANS_LOCAL_KEY, JSON.stringify(remoteCfg)); } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load cloud translate config:', err);
+      }
+    }
+
+    async function recordCloudTranslateChars(charCount) {
+      const add = Math.max(0, Math.round(Number(charCount) || 0));
+      if (!add) return;
+      const curMonth = getShelfLocalMonthKey();
+      const base = getEffectiveCloudTranslateConfig();
+      const now = Date.now();
+      const updated = {
+        apiKey: base.apiKey,
+        preferCloudInShelf: base.preferCloudInShelf !== false,
+        month: curMonth,
+        monthChars: (base.month === curMonth ? Number(base.monthChars || 0) : 0) + add,
+        updatedAt: now
+      };
+      state.cloudTranslate = updated;
+      try {
+        localStorage.setItem(CLOUD_TRANS_LOCAL_KEY, JSON.stringify(updated));
+        const qRaw = localStorage.getItem('peachz_hub_quota_v1');
+        const qObj = qRaw ? JSON.parse(qRaw) : {};
+        qObj.month = curMonth;
+        qObj.translateChars = Math.max(Number(qObj.translateChars || 0) + add, updated.monthChars);
+        localStorage.setItem('peachz_hub_quota_v1', JSON.stringify(qObj));
+      } catch (e) {}
+
+      if (state.user) {
+        try {
+          await setDoc(doc(db, 'users', state.user.uid, 'sync', 'peachzCloudTranslate'), {
+            stateJson: JSON.stringify(updated),
+            updatedAt: now,
+            updatedBy: 'peachz-shelf'
+          });
+        } catch (err) {
+          console.warn('Could not sync cloud translate usage:', err);
+        }
       }
     }
 
@@ -3413,6 +3512,10 @@
         const title = model ? `แปลด้วย Gemini AI (${model})` : 'แปลด้วย Gemini AI';
         return `<span title="${escapeHtml(title)}" class="px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold shrink-0">${escapeHtml(label)}</span>`;
       }
+      if (eng === 'cloud_translate') {
+        const label = detailed ? '🌐 Google Cloud Translate' : '🌐 Cloud';
+        return `<span title="แปลผ่าน Google Cloud Translation API" class="px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 text-[10px] font-semibold shrink-0">${label}</span>`;
+      }
       if (eng === 'free') {
         const label = detailed ? '🌐 แปลด่วนฟรี (Google)' : '🌐 แปลฟรี';
         return `<span title="แปลด่วนฟรีด้วย Google Translate" class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold shrink-0">${label}</span>`;
@@ -3436,7 +3539,7 @@
         if (!(c.translatedContent && String(c.translatedContent).trim())) return;
         const eng = String(c.transEngine || '').trim();
         if (eng === 'ai' || eng.startsWith('ai:')) aiCount++;
-        else if (eng === 'free') freeCount++;
+        else if (eng === 'free' || eng === 'cloud_translate') freeCount++;
         else otherTransCount++;
       });
       const statParts = [`${state.chapters.length} ตอน`];
@@ -4960,6 +5063,77 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       return outChunks.join('\n\n').trim();
     }
 
+    async function translateTextViaGoogleCloud(rawText, entries = []) {
+      const cfg = getEffectiveCloudTranslateConfig();
+      const apiKey = String(cfg?.apiKey || '').trim();
+      if (!apiKey) throw new Error('MISSING_CLOUD_TRANS_KEY');
+
+      const lines = splitNonEmptyLines(rawText);
+      if (lines.length === 0) return '';
+
+      const expanded = [];
+      for (const origLine of lines) {
+        const line = applyGlossaryPlaceholders(origLine, entries);
+        if (line.length <= 3500) {
+          expanded.push(line);
+        } else {
+          let rest = line;
+          while (rest.length > 0) {
+            let cut = Math.min(rest.length, 3200);
+            if (cut < rest.length) {
+              const punc = Math.max(rest.lastIndexOf('。', cut), rest.lastIndexOf('.', cut), rest.lastIndexOf(' ', cut));
+              if (punc > 800) cut = punc + 1;
+            }
+            expanded.push(rest.slice(0, cut));
+            rest = rest.slice(cut);
+          }
+        }
+      }
+
+      const batches = [];
+      let curBatch = [];
+      let curChars = 0;
+      for (const item of expanded) {
+        if (curBatch.length >= 40 || (curBatch.length > 0 && curChars + item.length > 4000)) {
+          batches.push(curBatch);
+          curBatch = [item];
+          curChars = item.length;
+        } else {
+          curBatch.push(item);
+          curChars += item.length;
+        }
+      }
+      if (curBatch.length) batches.push(curBatch);
+
+      const endpoint = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`;
+      const outLines = [];
+      let sentChars = 0;
+
+      for (const batch of batches) {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+          body: JSON.stringify({ q: batch, target: 'th', format: 'text' })
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = body?.error?.message || `HTTP ${res.status}`;
+          throw new Error(`Cloud Translate: ${msg}`);
+        }
+        const translations = body?.data?.translations;
+        if (!Array.isArray(translations)) {
+          throw new Error('ไม่สามารถอ่านผลลัพธ์จาก Cloud Translation API ได้');
+        }
+        sentChars += batch.reduce((s, x) => s + x.length, 0);
+        translations.forEach((tr) => {
+          outLines.push(restoreGlossaryPlaceholders(tr?.translatedText || '', entries));
+        });
+      }
+
+      if (sentChars > 0) recordCloudTranslateChars(sentChars);
+      return outLines.join('\n\n').trim();
+    }
+
     const PRESET_THINKING_LEVELS = new Set(['auto', 'low', 'medium', 'high', 'xhigh', 'minimal', 'off']);
     const liveModelMetaCache = new Map();
     const modelThinkingModeCache = new Map();
@@ -5363,9 +5537,24 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
         if (/-tts\b/i.test(usedModel)) usedModel = 'gemini-2.5-flash';
         transEngine = `ai:${usedModel}`.slice(0, 60);
       } else {
-        translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
-        translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
-        transEngine = 'free';
+        const cloudCfg = getEffectiveCloudTranslateConfig();
+        if (cloudCfg.apiKey && cloudCfg.preferCloudInShelf !== false) {
+          try {
+            translatedTitle = (await translateTextViaGoogleCloud(ch.title, entries)).slice(0, 200) || ch.title;
+            translatedContent = (await translateTextViaGoogleCloud(ch.content, entries)).slice(0, 800000);
+            transEngine = 'cloud_translate';
+          } catch (cloudErr) {
+            console.warn('Google Cloud Translate failed, falling back to free endpoint:', cloudErr);
+            showToast('⚠️ ' + (cloudErr?.message || 'Cloud Translate ขัดข้อง') + ' — สลับใช้แปลฟรีให้ชั่วคราว');
+            translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
+            translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
+            transEngine = 'free';
+          }
+        } else {
+          translatedTitle = (await translateTextViaGoogleFree(ch.title, entries)).slice(0, 200) || ch.title;
+          translatedContent = (await translateTextViaGoogleFree(ch.content, entries)).slice(0, 800000);
+          transEngine = 'free';
+        }
       }
 
       const now = Date.now();
@@ -5399,9 +5588,10 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       state.translatingChapter = true;
       $('btnReaderTransFree').disabled = true;
       $('btnReaderTransAi').disabled = true;
+      const cloudActive = Boolean(getEffectiveCloudTranslateConfig().apiKey && getEffectiveCloudTranslateConfig().preferCloudInShelf !== false);
       statusEl.textContent = engine === 'ai'
         ? '✨ กำลังแปลด้วย Gemini AI (โปรดรอสักครู่)...'
-        : '🌐 กำลังแปลด่วนฟรีด้วย Google Translate...';
+        : (cloudActive ? '🌐 กำลังแปลด้วย Google Cloud Translation API...' : '🌐 กำลังแปลด่วนฟรีด้วย Google Translate...');
       statusEl.classList.remove('hidden');
 
       try {
@@ -6411,7 +6601,7 @@ p { text-indent: 1.8em; margin: 0 0 0.8em 0; }`;
       renderUserHeader(user);
       showView('library');
       syncNavHistory('library', null, null, { replace: true });
-      await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadCloudShelfOrg(), loadNovels()]);
+      await Promise.all([loadCloudPrefs(), loadTranslatorConfig(), loadCloudTranslateConfig(), loadCloudShelfOrg(), loadNovels()]);
       renderLibrary();
     });
 
